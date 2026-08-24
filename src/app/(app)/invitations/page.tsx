@@ -1,19 +1,22 @@
 import { requireSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { InvitationsManager } from "@/components/InvitationsManager";
-import { canManageInvitations } from "@/lib/permissions";
-import type { CoreInvitation } from "@/lib/types";
+import { canManageInvitations, permissionKeys } from "@/lib/permissions";
+import type { CoreInvitation, CorePermissionsResponse } from "@/lib/types";
 
 export default async function InvitationsPage() {
   const session = await requireSession();
   const token = session.access_token;
 
-  const [invitations, permissions] = await Promise.all([
+  const [invitations, perms] = await Promise.all([
     apiFetch<CoreInvitation[]>("/v1/invitations", token).catch(
       () => [] as CoreInvitation[],
     ),
-    apiFetch<string[]>("/v1/me/permissions", token).catch(() => []),
+    apiFetch<CorePermissionsResponse>("/v1/me/permissions", token).catch(
+      () => null,
+    ),
   ]);
+  const permissions = permissionKeys(perms);
 
   return (
     <div className="flex flex-col gap-6">

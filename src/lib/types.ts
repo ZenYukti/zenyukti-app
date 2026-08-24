@@ -48,7 +48,21 @@ export interface CoreUserDetail extends CoreUser {
   roles?: CoreRole[];
 }
 
-export type CorePermission = string;
+/**
+ * GET /v1/me/permissions returns `{ permissions: CorePermission[] }` — a
+ * list of (resource, action, scope) triples, confirmed against
+ * zenyukti-os's identity handler. Not a flat string array.
+ */
+export interface CorePermission {
+  resource: string;
+  action: string;
+  scope_type: string;
+  scope_id?: string | null;
+}
+
+export interface CorePermissionsResponse {
+  permissions: CorePermission[];
+}
 
 export interface CoreInvitation {
   id: string;

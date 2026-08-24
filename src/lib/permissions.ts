@@ -1,7 +1,25 @@
+import type { CorePermission, CorePermissionsResponse } from "@/lib/types";
+
 /**
- * Permission key names returned by GET /v1/me/permissions haven't been
- * verified against a live response (see note in lib/types.ts). Checking
- * several plausible key spellings keeps this from silently hiding
+ * GET /v1/me/permissions returns `{ permissions: [{ resource, action, ... }] }`,
+ * not a flat string array (confirmed against zenyukti-os). Normalizes that
+ * into "resource:action" keys for matches() below, and tolerates a missing
+ * or malformed response instead of throwing.
+ */
+export function permissionKeys(
+  response: CorePermissionsResponse | null | undefined,
+): string[] {
+  if (!response || !Array.isArray(response.permissions)) return [];
+  return response.permissions
+    .filter(
+      (p): p is CorePermission =>
+        typeof p?.resource === "string" && typeof p?.action === "string",
+    )
+    .map((p) => `${p.resource}:${p.action}`);
+}
+
+/**
+ * Checking several plausible key spellings keeps this from silently hiding
  * management UI if the real key differs slightly — the backend still
  * enforces the actual rule, this only controls whether we show the button.
  */

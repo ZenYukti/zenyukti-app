@@ -1,8 +1,8 @@
 import { requireSession } from "@/lib/session";
 import { apiFetch, ApiError } from "@/lib/api";
 import { Nav } from "@/components/Nav";
-import { canManageInvitations } from "@/lib/permissions";
-import type { CoreUser } from "@/lib/types";
+import { canManageInvitations, permissionKeys } from "@/lib/permissions";
+import type { CoreUser, CorePermissionsResponse } from "@/lib/types";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const session = await requireSession();
@@ -15,10 +15,12 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   try {
     const [me, perms] = await Promise.all([
       apiFetch<CoreUser>("/v1/me", token),
-      apiFetch<string[]>("/v1/me/permissions", token).catch(() => []),
+      apiFetch<CorePermissionsResponse>("/v1/me/permissions", token).catch(
+        () => null,
+      ),
     ]);
     displayName = me.email ?? displayName;
-    permissions = perms ?? [];
+    permissions = permissionKeys(perms);
   } catch (err) {
     if (err instanceof ApiError) {
       apiUnreachable = true;
