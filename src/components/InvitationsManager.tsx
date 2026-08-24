@@ -1,18 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { apiFetch, ApiError } from "@/lib/api";
-import { createClient } from "@/lib/supabase/client";
+import { issueInvitation, revokeInvitation } from "@/lib/invitation-actions";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { CoreInvitation } from "@/lib/types";
-
-async function getToken() {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return session?.access_token ?? null;
-}
 
 export function InvitationsManager({
   initialInvitations,
@@ -32,23 +23,13 @@ export function InvitationsManager({
     setError(null);
     setIssuing(true);
     try {
-      const token = await getToken();
-      const invitation = await apiFetch<CoreInvitation>(
-        "/v1/invitations",
-        token,
-        {
-          method: "POST",
-          body: JSON.stringify({ email }),
-        },
-      );
-      setInvitations((prev) => [invitation, ...prev]);
+      const result = await issueInvitation(email);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setInvitations((prev) => [result.invitation, ...prev]);
       setEmail("");
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.detail || err.message
-          : "Failed to issue invitation.",
-      );
     } finally {
       setIssuing(false);
     }
@@ -58,18 +39,13 @@ export function InvitationsManager({
     setError(null);
     setRevokingId(id);
     try {
-      const token = await getToken();
-      await apiFetch(`/v1/invitations/${id}/revoke`, token, {
-        method: "POST",
-      });
+      const result = await revokeInvitation(id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
       setInvitations((prev) =>
-        prev.map((inv) => (inv.id === id ? { ...inv, status: "REVOKED" } : inv)),
-      );
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.detail || err.message
-          : "Failed to revoke invitation.",
+        prev.map((inv) => (inv.id === id ? result.invitation : inv)),
       );
     } finally {
       setRevokingId(null);
