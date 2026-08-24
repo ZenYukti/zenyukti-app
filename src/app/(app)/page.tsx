@@ -2,27 +2,16 @@ import Link from "next/link";
 import { requireSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
-import type { CoreUser, CoreProfile, CoreRole } from "@/lib/types";
+import type { CoreUser, CoreProfile, CoreRolesResponse } from "@/lib/types";
 
-const PROFILE_FIELDS: (keyof CoreProfile)[] = [
-  "name",
-  "display_name",
-  "bio",
-  "avatar_url",
-  "title",
-  "github",
-  "linkedin",
-  "website",
-  "skills",
-  "team",
-];
+// Only fields the real /v1/me/profile response actually has (see
+// lib/types.ts) — the rest of the speculative profile fields don't exist
+// on the API and would always read as 0%.
+const PROFILE_FIELDS: (keyof CoreProfile)[] = ["display_name", "avatar_url", "bio"];
 
 function profileCompleteness(profile: CoreProfile | null) {
   if (!profile) return 0;
-  const filled = PROFILE_FIELDS.filter((field) => {
-    const value = profile[field];
-    return Array.isArray(value) ? value.length > 0 : Boolean(value);
-  });
+  const filled = PROFILE_FIELDS.filter((field) => Boolean(profile[field]));
   return Math.round((filled.length / PROFILE_FIELDS.length) * 100);
 }
 
@@ -30,13 +19,14 @@ export default async function DashboardPage() {
   const session = await requireSession();
   const token = session.access_token;
 
-  const [me, profile, roles] = await Promise.all([
+  const [me, profile, rolesRes] = await Promise.all([
     apiFetch<CoreUser>("/v1/me", token).catch(() => null),
     apiFetch<CoreProfile>("/v1/me/profile", token).catch(() => null),
-    apiFetch<CoreRole[]>("/v1/me/roles", token).catch(() => []),
+    apiFetch<CoreRolesResponse>("/v1/me/roles", token).catch(() => null),
   ]);
 
-  const displayName = profile?.display_name || profile?.name || me?.email;
+  const roles = rolesRes?.roles ?? [];
+  const displayName = profile?.display_name || me?.email;
   const completeness = profileCompleteness(profile);
 
   return (

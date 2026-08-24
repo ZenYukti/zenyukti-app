@@ -16,15 +16,19 @@ const LINKS = [
 export function Nav({
   displayName,
   showInvitations,
+  showMembers,
 }: {
   displayName: string;
   showInvitations: boolean;
+  showMembers: boolean;
 }) {
   const pathname = usePathname();
 
-  const links = LINKS.filter(
-    (link) => link.href !== "/invitations" || showInvitations,
-  );
+  const links = LINKS.filter((link) => {
+    if (link.href === "/invitations") return showInvitations;
+    if (link.href === "/team" || link.href === "/members") return showMembers;
+    return true;
+  });
 
   return (
     <header className="border-b border-border">

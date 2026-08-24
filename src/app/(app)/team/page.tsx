@@ -1,52 +1,55 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/session";
-import { apiFetch } from "@/lib/api";
-import type { CoreUser, CoreUserDetail } from "@/lib/types";
+import { apiFetch, ApiError } from "@/lib/api";
+import { StatusBadge } from "@/components/StatusBadge";
+import type { CoreMember, CoreMembersResponse } from "@/lib/types";
 
-// Roles surface in this order when present; anything else is appended
-// alphabetically after.
-const ROLE_PRIORITY = ["Founder", "Co-Founder", "ZenCrew"];
+// Real standing_role slugs (zenyukti-os's seeded RBAC roles), in display
+// order. Anything else (or no standing) is grouped last as "Member".
+const STANDING_ORDER = ["founder", "zencrew", "zenmate"];
+const STANDING_LABELS: Record<string, string> = {
+  founder: "Founder",
+  zencrew: "ZenCrew",
+  zenmate: "ZenMate",
+};
 
-function sortGroups(groups: string[]) {
-  return groups.sort((a, b) => {
-    const ai = ROLE_PRIORITY.indexOf(a);
-    const bi = ROLE_PRIORITY.indexOf(b);
-    if (ai !== -1 || bi !== -1) {
-      return (ai === -1 ? ROLE_PRIORITY.length : ai) -
-        (bi === -1 ? ROLE_PRIORITY.length : bi);
-    }
-    return a.localeCompare(b);
-  });
+function standingLabel(slug: string | null | undefined) {
+  if (!slug) return "Member";
+  return STANDING_LABELS[slug] ?? slug;
+}
+
+function groupOrder(slug: string) {
+  const i = STANDING_ORDER.indexOf(slug);
+  return i === -1 ? STANDING_ORDER.length : i;
 }
 
 export default async function TeamPage() {
   const session = await requireSession();
   const token = session.access_token;
 
-  const users = await apiFetch<CoreUser[]>("/v1/users", token).catch(
-    () => [] as CoreUser[],
-  );
-
-  const details = await Promise.all(
-    users.map((user) =>
-      apiFetch<CoreUserDetail>(`/v1/users/${user.id}`, token).catch(
-        () => ({ ...user }) as CoreUserDetail,
-      ),
-    ),
-  );
-
-  const groups = new Map<string, CoreUserDetail[]>();
-  for (const user of details) {
-    const roleNames = user.roles?.length
-      ? user.roles.map((r) => r.name)
-      : ["ZenMate"];
-    for (const roleName of roleNames) {
-      if (!groups.has(roleName)) groups.set(roleName, []);
-      groups.get(roleName)!.push(user);
-    }
+  let members: CoreMember[] = [];
+  let loadError: string | null = null;
+  try {
+    const res = await apiFetch<CoreMembersResponse>("/v1/users", token);
+    members = res.members;
+  } catch (err) {
+    loadError =
+      err instanceof ApiError
+        ? err.status === 403
+          ? "You don't have permission to view the team directory."
+          : err.detail || err.message
+        : "Couldn't load the team directory.";
   }
 
-  const orderedGroups = sortGroups([...groups.keys()]);
+  const groups = new Map<string, CoreMember[]>();
+  for (const member of members) {
+    const slug = member.standing_role ?? "";
+    if (!groups.has(slug)) groups.set(slug, []);
+    groups.get(slug)!.push(member);
+  }
+  const orderedGroups = [...groups.keys()].sort(
+    (a, b) => groupOrder(a) - groupOrder(b),
+  );
 
   return (
     <div className="flex flex-col gap-8">
@@ -57,46 +60,39 @@ export default async function TeamPage() {
         </p>
       </div>
 
-      {orderedGroups.length === 0 && (
-        <p className="text-sm text-muted">No team data to show.</p>
+      {loadError && (
+        <p className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-500">
+          {loadError}
+        </p>
       )}
 
-      {orderedGroups.map((group) => (
-        <div key={group}>
-          <h2 className="mb-3 text-sm font-medium text-muted">{group}</h2>
+      {!loadError && members.length === 0 && (
+        <p className="text-sm text-muted">No team members to show.</p>
+      )}
+
+      {orderedGroups.map((slug) => (
+        <div key={slug || "unassigned"}>
+          <h2 className="mb-3 text-sm font-medium text-muted">
+            {standingLabel(slug)}
+          </h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-            {groups.get(group)!.map((user) => {
-              const displayName =
-                user.profile?.display_name || user.profile?.name || user.email;
-              return (
-                <Link
-                  key={`${group}-${user.id}`}
-                  href={`/members/${user.id}`}
-                  className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-surface"
-                >
-                  {user.profile?.avatar_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={user.profile.avatar_url}
-                      alt={displayName}
-                      className="h-10 w-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-sm font-medium text-muted">
-                      {displayName.slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{displayName}</p>
-                    {user.profile?.title && (
-                      <p className="truncate text-xs text-muted">
-                        {user.profile.title}
-                      </p>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
+            {groups.get(slug)!.map((member) => (
+              <Link
+                key={member.id}
+                href={`/members/${member.id}`}
+                className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-surface"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-sm font-medium text-muted">
+                  {member.email.slice(0, 1).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {member.email}
+                  </p>
+                </div>
+                <StatusBadge status={member.status} />
+              </Link>
+            ))}
           </div>
         </div>
       ))}

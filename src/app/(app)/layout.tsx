@@ -1,7 +1,11 @@
 import { requireSession } from "@/lib/session";
 import { apiFetch, ApiError } from "@/lib/api";
 import { Nav } from "@/components/Nav";
-import { canManageInvitations, permissionKeys } from "@/lib/permissions";
+import {
+  canManageInvitations,
+  canViewMembers,
+  permissionKeys,
+} from "@/lib/permissions";
 import type { CoreUser, CorePermissionsResponse } from "@/lib/types";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
@@ -34,6 +38,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <Nav
         displayName={displayName}
         showInvitations={canManageInvitations(permissions)}
+        showMembers={canViewMembers(permissions)}
       />
       {apiUnreachable && (
         <div className="border-b border-border bg-surface px-4 py-2 text-center text-sm text-muted sm:px-6">

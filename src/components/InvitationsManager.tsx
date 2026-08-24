@@ -23,7 +23,6 @@ export function InvitationsManager({
 }) {
   const [invitations, setInvitations] = useState(initialInvitations);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [issuing, setIssuing] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
@@ -39,12 +38,11 @@ export function InvitationsManager({
         token,
         {
           method: "POST",
-          body: JSON.stringify({ email, role: role || undefined }),
+          body: JSON.stringify({ email }),
         },
       );
       setInvitations((prev) => [invitation, ...prev]);
       setEmail("");
-      setRole("");
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -65,7 +63,7 @@ export function InvitationsManager({
         method: "POST",
       });
       setInvitations((prev) =>
-        prev.map((inv) => (inv.id === id ? { ...inv, status: "revoked" } : inv)),
+        prev.map((inv) => (inv.id === id ? { ...inv, status: "REVOKED" } : inv)),
       );
     } catch (err) {
       setError(
@@ -99,19 +97,6 @@ export function InvitationsManager({
               className="rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
             />
           </div>
-          <div className="flex flex-col gap-1.5 sm:w-48">
-            <label htmlFor="invite-role" className="text-sm font-medium">
-              Role (optional)
-            </label>
-            <input
-              id="invite-role"
-              type="text"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              placeholder="e.g. zenmate"
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
-            />
-          </div>
           <button
             type="submit"
             disabled={issuing}
@@ -139,11 +124,10 @@ export function InvitationsManager({
             >
               <div className="min-w-0">
                 <p className="truncate text-sm">{inv.email}</p>
-                {inv.role && <p className="text-xs text-muted">{inv.role}</p>}
               </div>
               <div className="flex items-center gap-3">
                 <StatusBadge status={inv.status} />
-                {canManage && inv.status === "pending" && (
+                {canManage && inv.status.toUpperCase() === "PENDING" && (
                   <button
                     onClick={() => handleRevoke(inv.id)}
                     disabled={revokingId === inv.id}

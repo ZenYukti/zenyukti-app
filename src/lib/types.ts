@@ -1,21 +1,19 @@
 /**
  * Core API (api.zenyukti.in) response shapes.
  *
- * These are inferred from the endpoint/field list in the product spec —
- * zenyukti-os is a private repo and no live token was available while
- * building this, so the exact JSON keys have NOT been verified against a
- * real response. If a page renders blank/missing fields once wired to a
- * real account, check the field names here first against the actual
- * backend response and adjust — this is the one file that should need it.
+ * Verified directly against zenyukti-os's handlers (internal/modules/*),
+ * not guessed from the product spec. CoreProfile is the one exception —
+ * self-profile editing is out of scope for this pass, so it's left as-is.
  */
 
-export type MemberStatus = "active" | "pending" | "suspended" | string;
+export type MemberStatus = "INVITED" | "ACTIVE" | "SUSPENDED" | "DISABLED" | string;
 
+/** GET /v1/me. */
 export interface CoreUser {
   id: string;
   email: string;
   status: MemberStatus;
-  created_at?: string;
+  created_at: string;
 }
 
 export interface CoreProfile {
@@ -32,27 +30,46 @@ export interface CoreProfile {
   team?: string;
 }
 
+/** GET /v1/me/roles — one of the caller's currently-effective role grants. */
 export interface CoreRole {
-  id?: string;
+  slug: string;
   name: string;
 }
 
-/**
- * GET /v1/users/:id — assumed to return the base user plus nested
- * profile/roles. Not confirmed against a real response; if the detail
- * endpoint turns out to be flat or shaped differently, this is the type
- * to adjust.
- */
-export interface CoreUserDetail extends CoreUser {
-  profile?: CoreProfile;
-  roles?: CoreRole[];
+export interface CoreRolesResponse {
+  roles: CoreRole[];
 }
 
 /**
- * GET /v1/me/permissions returns `{ permissions: CorePermission[] }` — a
- * list of (resource, action, scope) triples, confirmed against
- * zenyukti-os's identity handler. Not a flat string array.
+ * GET /v1/users and GET /v1/users/:id — no nested `profile` exists for
+ * other users on the real API (only /v1/me/profile returns profile data,
+ * and only for the caller's own account).
  */
+export interface CoreMember {
+  id: string;
+  email: string;
+  status: MemberStatus;
+  standing_role?: string | null;
+  created_at: string;
+  disabled_at?: string | null;
+}
+
+export interface CoreMembersResponse {
+  members: CoreMember[];
+}
+
+/** One role grant as returned in GET /v1/users/:id's `roles` array. */
+export interface CoreMemberRole {
+  slug: string;
+  kind: string;
+  scope_type: string;
+  scope_id?: string | null;
+}
+
+export interface CoreMemberDetail extends CoreMember {
+  roles: CoreMemberRole[];
+}
+
 export interface CorePermission {
   resource: string;
   action: string;
@@ -64,14 +81,21 @@ export interface CorePermissionsResponse {
   permissions: CorePermission[];
 }
 
+/** GET /v1/invitations, POST /v1/invitations, POST /v1/invitations/:id/revoke. */
 export interface CoreInvitation {
   id: string;
   email: string;
-  role?: string;
-  status: "pending" | "accepted" | "revoked" | "expired" | string;
-  created_at?: string;
-  expires_at?: string;
-  invited_by?: string;
+  status: "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED" | string;
+  invited_by: string;
+  expires_at: string;
+  created_at: string;
+  accepted_at?: string | null;
+  revoked_at?: string | null;
+  accept_url?: string;
+}
+
+export interface CoreInvitationsResponse {
+  invitations: CoreInvitation[];
 }
 
 export interface CoreApiError {

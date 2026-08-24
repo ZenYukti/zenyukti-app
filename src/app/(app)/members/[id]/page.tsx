@@ -3,7 +3,25 @@ import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/session";
 import { apiFetch, ApiError } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
-import type { CoreUserDetail } from "@/lib/types";
+import type { CoreMemberDetail } from "@/lib/types";
+
+const STANDING_LABELS: Record<string, string> = {
+  founder: "Founder",
+  zencrew: "ZenCrew",
+  zenmate: "ZenMate",
+};
+
+function roleLabel(slug: string) {
+  return STANDING_LABELS[slug] ?? slug;
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
 
 export default async function MemberDetailPage({
   params,
@@ -11,9 +29,10 @@ export default async function MemberDetailPage({
   const { id } = await params;
   const session = await requireSession();
 
-  let user: CoreUserDetail | null = null;
+  let member: CoreMemberDetail | null = null;
+  let loadError: string | null = null;
   try {
-    user = await apiFetch<CoreUserDetail>(
+    member = await apiFetch<CoreMemberDetail>(
       `/v1/users/${id}`,
       session.access_token,
     );
@@ -21,11 +40,13 @@ export default async function MemberDetailPage({
     if (err instanceof ApiError && err.status === 404) {
       notFound();
     }
-    throw err;
+    loadError =
+      err instanceof ApiError
+        ? err.status === 403
+          ? "You don't have permission to view this member."
+          : err.detail || err.message
+        : "Couldn't load this member.";
   }
-
-  const profile = user.profile;
-  const displayName = profile?.display_name || profile?.name || user.email;
 
   return (
     <div className="flex flex-col gap-6">
@@ -33,89 +54,54 @@ export default async function MemberDetailPage({
         ← Members
       </Link>
 
-      <div className="flex items-center gap-4">
-        {profile?.avatar_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={profile.avatar_url}
-            alt={displayName}
-            className="h-16 w-16 rounded-full object-cover"
-          />
-        ) : (
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface text-xl font-medium text-muted">
-            {displayName.slice(0, 1).toUpperCase()}
-          </div>
-        )}
-        <div>
-          <h1 className="text-xl font-semibold">{displayName}</h1>
-          {profile?.title && <p className="text-sm text-muted">{profile.title}</p>}
-          <p className="text-sm text-muted">{user.email}</p>
-        </div>
-        <div className="ml-auto">
-          <StatusBadge status={user.status} />
-        </div>
-      </div>
-
-      {profile?.bio && <p className="text-sm leading-relaxed">{profile.bio}</p>}
-
-      {user.roles && user.roles.length > 0 && (
-        <div>
-          <p className="mb-2 text-xs uppercase tracking-wide text-muted">
-            Roles
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {user.roles.map((role) => (
-              <span
-                key={role.id ?? role.name}
-                className="rounded-full bg-surface px-2.5 py-1 text-xs"
-              >
-                {role.name}
-              </span>
-            ))}
-          </div>
-        </div>
+      {loadError && (
+        <p className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-500">
+          {loadError}
+        </p>
       )}
 
-      {profile?.skills && profile.skills.length > 0 && (
-        <div>
-          <p className="mb-2 text-xs uppercase tracking-wide text-muted">
-            Skills
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {profile.skills.map((skill) => (
-              <span
-                key={skill}
-                className="rounded-full bg-surface px-2.5 py-1 text-xs"
-              >
-                {skill}
-              </span>
-            ))}
+      {member && (
+        <>
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface text-xl font-medium text-muted">
+              {member.email.slice(0, 1).toUpperCase()}
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold">{member.email}</h1>
+              {member.standing_role && (
+                <p className="text-sm text-muted">
+                  {roleLabel(member.standing_role)}
+                </p>
+              )}
+            </div>
+            <div className="ml-auto">
+              <StatusBadge status={member.status} />
+            </div>
           </div>
-        </div>
-      )}
 
-      <div className="flex flex-wrap gap-4 text-sm">
-        {profile?.team && (
-          <span className="text-muted">
-            Team: <span className="text-foreground">{profile.team}</span>
-          </span>
-        )}
-        {profile?.github && (
-          <a href={profile.github} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-            GitHub
-          </a>
-        )}
-        {profile?.linkedin && (
-          <a href={profile.linkedin} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-            LinkedIn
-          </a>
-        )}
-        {profile?.website && (
-          <a href={profile.website} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-            Website
-          </a>
-        )}
-      </div>
+          {member.roles.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-wide text-muted">
+                Roles
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {member.roles.map((role) => (
+                  <span
+                    key={`${role.slug}-${role.scope_type}-${role.scope_id ?? "global"}`}
+                    className="rounded-full bg-surface px-2.5 py-1 text-xs"
+                  >
+                    {roleLabel(role.slug)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <p className="text-sm text-muted">
+            Member since {formatDate(member.created_at)}
+          </p>
+        </>
+      )}
     </div>
   );
 }

@@ -36,11 +36,11 @@ export function canManageInvitations(permissions: string[]) {
   ]);
 }
 
+/**
+ * GET /v1/users and /v1/users/:id both require "users.view" (see
+ * zenyukti-os cmd/api/router.go) — confirmed, not guessed, so this checks
+ * exactly that key.
+ */
 export function canViewMembers(permissions: string[]) {
-  return matches(permissions, [
-    "users:list",
-    "users:read",
-    "members:list",
-    "members:read",
-  ]);
+  return matches(permissions, ["users:view"]);
 }
