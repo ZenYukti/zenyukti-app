@@ -1,7 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/invitations/accept"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/invitations/accept",
+  // Compatibility redirect for zenyukti-os's emailed link shape — see
+  // src/app/v1/invitations/accept/route.ts.
+  "/v1/invitations/accept",
+];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some(
