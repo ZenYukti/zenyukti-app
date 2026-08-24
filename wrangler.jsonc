@@ -6,6 +6,12 @@
   "compatibility_flags": [
     "global_fetch_strictly_public"
   ],
+  "routes": [
+    {
+      "pattern": "app.zenyukti.in",
+      "custom_domain": true
+    }
+  ],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
