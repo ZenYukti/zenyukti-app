@@ -19,7 +19,7 @@ const PROFILE_FIELDS: {
   { key: "title", label: "title" },
 ];
 
-function hasSocialLink(socials: ProfileSocials) {
+export function hasSocialLink(socials: ProfileSocials) {
   return Boolean(
     socials.github ||
       socials.linkedin ||

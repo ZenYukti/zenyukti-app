@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/session";
 import { apiFetch, ApiError } from "@/lib/api";
-import { StatusBadge } from "@/components/StatusBadge";
+import { StatusDot } from "@/components/StatusBadge";
 import {
   canManageInvitations,
   canViewMembers,
   permissionKeys,
 } from "@/lib/permissions";
-import { profileCompleteness } from "@/lib/profile";
+import { hasSocialLink, profileCompleteness, SOCIAL_LABELS } from "@/lib/profile";
 import { standingBreakdown } from "@/lib/standing";
 import type {
   CoreUser,
@@ -19,6 +19,18 @@ import type {
   CoreInvitation,
   CoreInvitationsResponse,
 } from "@/lib/types";
+
+const ECOSYSTEM = [
+  { name: "ZenYukti", domain: "zenyukti.in" },
+  { name: "ZenYukti Women", domain: "women.zenyukti.in" },
+  { name: "ZenTalks", domain: "zentalks.zenyukti.in" },
+  { name: "ZenSolve", domain: "zensolve.zenyukti.in" },
+  { name: "ZenYukti Labs", domain: "labs.zenyukti.in" },
+] as const;
+
+const EYEBROW = "font-mono text-xs uppercase tracking-widest text-muted";
+const LINK = "text-sm text-accent hover:underline";
+const CHIP = "rounded-full bg-surface px-2.5 py-1 text-xs";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -35,27 +47,40 @@ function errorMessage(err: unknown, fallback: string, forbidden: string) {
   return fallback;
 }
 
-function Panel({
-  title,
-  action,
+function Card({
+  id,
+  className = "",
   children,
 }: {
-  title: string;
-  action?: React.ReactNode;
+  id?: string;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3 p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-muted">{title}</h2>
-        {action}
-      </div>
+    <div id={id} className={`rounded-md border border-border p-6 ${className}`}>
       {children}
-    </section>
+    </div>
   );
 }
 
-const PANEL_LINK = "text-sm text-accent hover:underline";
+function ArrowLink({
+  href,
+  children,
+  className = "",
+}: {
+  href: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <Link href={href} className={`group inline-flex items-center gap-1 ${LINK} ${className}`}>
+      <span>{children}</span>
+      <span className="inline-block transition-transform duration-150 group-hover:translate-x-0.5">
+        →
+      </span>
+    </Link>
+  );
+}
 
 export default async function DashboardPage() {
   const session = await requireSession();
@@ -117,188 +142,295 @@ export default async function DashboardPage() {
   ]);
 
   const roles = rolesRes?.roles ?? [];
-  const standing =
-    roles.length > 0 ? roles.map((r) => r.name).join(", ") : "ZenMate";
+  const roleLabel = roles.length > 0 ? roles.map((r) => r.name).join(" · ") : "ZenMate";
   const displayName =
     profile?.display_name || me.email || session.user.email || "ZenMate";
-
-  const panelCount = 1 + (teamResult ? 1 : 0) + (invitesResult ? 1 : 0);
-  const gridColsClass =
-    panelCount === 3
-      ? "lg:grid-cols-3"
-      : panelCount === 2
-        ? "lg:grid-cols-2"
-        : "lg:grid-cols-1";
-
-  const recentInvitations = invitesResult
-    ? [...invitesResult.invitations]
-        .sort(
-          (a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-        )
-        .slice(0, 4)
-    : [];
+  const profileStats = profile ? profileCompleteness(profile) : null;
   const pendingCount = invitesResult
     ? invitesResult.invitations.filter(
         (i) => i.status.toUpperCase() === "PENDING",
       ).length
     : 0;
-  const profileStats = profile ? profileCompleteness(profile) : null;
+
+  const nextStep = (() => {
+    if (!profile) {
+      return {
+        headline: "Start your story.",
+        body: "You're in — now let ZenYukti know who just walked in.",
+        cta: "Set up your profile",
+        href: "/profile",
+      };
+    }
+    if (profileStats && profileStats.percent < 100) {
+      return {
+        headline: "Keep building.",
+        body: `Add ${profileStats.missing.join(", ")} to round out your profile.`,
+        cta: "Complete your profile",
+        href: "/profile",
+      };
+    }
+    if (!profile.is_public) {
+      return {
+        headline: "You're ready.",
+        body: "Your profile is fully built — make it public so other ZenMates can find you.",
+        cta: "Update visibility",
+        href: "/profile",
+      };
+    }
+    if (
+      canInvite &&
+      invitesResult &&
+      !invitesResult.error &&
+      invitesResult.invitations.length === 0
+    ) {
+      return {
+        headline: "Grow the crew.",
+        body: "You can bring new members into ZenYukti.",
+        cta: "Send an invitation",
+        href: "/invitations",
+      };
+    }
+    return {
+      headline: "You're all set.",
+      body: "Your ZenYukti identity is complete — go see what else we're building.",
+      cta: "Explore the ecosystem",
+      href: "#ecosystem",
+    };
+  })();
 
   return (
     <div className="flex flex-col gap-10">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          {profile?.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={profile.avatar_url}
-              alt={displayName}
-              className="h-14 w-14 shrink-0 rounded-full object-cover"
-            />
-          ) : (
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-surface text-lg font-medium text-muted">
-              {displayName.slice(0, 1).toUpperCase()}
+      <div className="flex flex-col gap-5 border-b border-border pb-8">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-4">
+            {profile?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={profile.avatar_url}
+                alt={displayName}
+                className="h-16 w-16 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface text-xl font-medium text-muted">
+                {displayName.slice(0, 1).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                Welcome back, {displayName}
+              </h1>
+              <p className="mt-1.5 text-sm text-muted">{roleLabel}</p>
             </div>
-          )}
-          <div>
-            <h1 className="text-2xl font-semibold">{displayName}</h1>
-            <p className="mt-0.5 text-sm text-muted">
-              {standing} · Member since {formatDate(me.created_at)}
-            </p>
+          </div>
+          <div className="sm:pt-2">
+            <StatusDot status={me.status} />
           </div>
         </div>
-        <StatusBadge status={me.status} />
+        <p className="font-mono text-sm text-muted">
+          {"// Your corner of the ZenYukti universe."}
+        </p>
       </div>
 
-      <div
-        className={`grid grid-cols-1 divide-y divide-border border border-border rounded-md lg:divide-y-0 lg:divide-x ${gridColsClass}`}
-      >
-        <Panel
-          title="Profile"
-          action={
-            <Link href="/profile" className={PANEL_LINK}>
-              Edit →
-            </Link>
-          }
-        >
-          {profileStats ? (
-            <>
-              <div className="flex items-center gap-3">
-                <div
-                  role="progressbar"
-                  aria-label="Profile completeness"
-                  aria-valuenow={profileStats.percent}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  className="h-1.5 flex-1 rounded-full bg-border"
-                >
-                  <div
-                    className="h-1.5 rounded-full bg-accent"
-                    style={{ width: `${profileStats.percent}%` }}
-                  />
-                </div>
-                <span className="text-sm tabular-nums text-muted">
-                  {profileStats.percent}%
-                </span>
-              </div>
-              <p className="text-sm text-muted">
-                {profileStats.missing.length > 0
-                  ? `Add ${profileStats.missing.join(", ")} to complete your profile.`
-                  : "Your profile is complete."}
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-muted">
-                You haven&apos;t set up your profile yet.
-              </p>
-              <Link href="/profile" className={PANEL_LINK}>
-                Set up your profile →
-              </Link>
-            </>
-          )}
-        </Panel>
-
-        {teamResult && (
-          <Panel
-            title="Team"
-            action={
-              <Link href="/team" className={PANEL_LINK}>
-                View →
-              </Link>
-            }
-          >
-            {teamResult.error ? (
-              <p className="text-sm text-red-500">{teamResult.error}</p>
-            ) : (
-              <>
-                <p className="text-2xl font-semibold tabular-nums">
-                  {teamResult.members.length}
-                </p>
-                <p className="text-sm text-muted">
-                  {teamResult.members.length === 1 ? "member" : "members"} in
-                  ZenYukti
-                </p>
-                <ul className="flex flex-col gap-1 text-sm">
-                  {standingBreakdown(teamResult.members).map(
-                    ({ label, count }) => (
-                      <li key={label} className="flex justify-between">
-                        <span className="text-muted">{label}</span>
-                        <span className="tabular-nums">{count}</span>
-                      </li>
-                    ),
-                  )}
-                </ul>
-                <Link href="/members" className={PANEL_LINK}>
-                  Browse member directory →
-                </Link>
-              </>
-            )}
-          </Panel>
-        )}
-
-        {invitesResult && (
-          <Panel
-            title="Invitations"
-            action={
-              <Link href="/invitations" className={PANEL_LINK}>
-                Manage →
-              </Link>
-            }
-          >
-            {invitesResult.error ? (
-              <p className="text-sm text-red-500">{invitesResult.error}</p>
-            ) : (
-              <>
-                <p className="text-2xl font-semibold tabular-nums">
-                  {pendingCount}
-                </p>
-                <p className="text-sm text-muted">
-                  pending {pendingCount === 1 ? "invitation" : "invitations"}
-                </p>
-                {recentInvitations.length > 0 && (
-                  <ul className="flex flex-col gap-1.5">
-                    {recentInvitations.map((inv) => (
-                      <li
-                        key={inv.id}
-                        className="flex items-center justify-between gap-2 text-sm"
-                      >
-                        <span className="truncate text-muted">
-                          {inv.email}
-                        </span>
-                        <StatusBadge status={inv.status} />
-                      </li>
-                    ))}
-                  </ul>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="flex flex-col gap-6 lg:col-span-2">
+          <Card>
+            <p className={EYEBROW}>Your profile</p>
+            <div className="mt-4 flex flex-col gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">{displayName}</h2>
+                {profile?.title && (
+                  <p className="text-sm text-muted">{profile.title}</p>
                 )}
-                <Link href="/invitations" className={PANEL_LINK}>
-                  Invite someone →
-                </Link>
-              </>
-            )}
-          </Panel>
-        )}
+              </div>
+
+              {profile ? (
+                <>
+                  {profile.bio ? (
+                    <p className="text-sm leading-relaxed">{profile.bio}</p>
+                  ) : (
+                    <p className="text-sm text-muted">
+                      Your bio is currently on vacation. Give people something
+                      to know you by.
+                    </p>
+                  )}
+
+                  {profile.skills.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs uppercase tracking-wide text-muted">
+                        Skills
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {profile.skills.map((skill) => (
+                          <span key={skill} className={CHIP}>
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {hasSocialLink(profile.socials) && (
+                    <div className="flex flex-wrap gap-4 border-t border-border pt-4">
+                      {SOCIAL_LABELS.map(
+                        ({ key, label }) =>
+                          profile.socials[key] && (
+                            <a
+                              key={key}
+                              href={profile.socials[key]}
+                              target="_blank"
+                              rel="noreferrer"
+                              className={LINK}
+                            >
+                              {label}
+                            </a>
+                          ),
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted">
+                  You&apos;re all identity, no data yet —{" "}
+                  <Link href="/profile" className={LINK}>
+                    set up your profile
+                  </Link>
+                  .
+                </p>
+              )}
+            </div>
+          </Card>
+
+          <div className="border-l-2 border-accent/60 pl-5">
+            <p className={EYEBROW}>Keep building</p>
+            <h3 className="mt-2 text-lg font-semibold">{nextStep.headline}</h3>
+            <p className="mt-1 text-sm text-muted">{nextStep.body}</p>
+            <ArrowLink href={nextStep.href} className="mt-3">
+              {nextStep.cta}
+            </ArrowLink>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-6">
+          <Card>
+            <p className={EYEBROW}>Your ZenYukti</p>
+            <div className="mt-4 flex flex-col gap-4">
+              <span className={`w-fit ${CHIP}`}>{roleLabel}</span>
+              <p className="text-sm text-muted">
+                Member since {formatDate(me.created_at)}
+              </p>
+
+              {profileStats && (
+                <div className="border-t border-border pt-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted">Profile</span>
+                    <span className="tabular-nums text-muted">
+                      {profileStats.percent}%
+                    </span>
+                  </div>
+                  <div
+                    role="progressbar"
+                    aria-label="Profile completeness"
+                    aria-valuenow={profileStats.percent}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    className="mt-2 h-1.5 rounded-full bg-border"
+                  >
+                    <div
+                      className="h-1.5 rounded-full bg-accent"
+                      style={{ width: `${profileStats.percent}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <Link
+                href="/profile"
+                className="group mt-1 inline-flex w-fit items-center gap-1 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface"
+              >
+                <span>Edit profile</span>
+                <span className="inline-block transition-transform duration-150 group-hover:translate-x-0.5">
+                  →
+                </span>
+              </Link>
+
+              {teamResult && (
+                <div className="border-t border-border pt-4">
+                  {teamResult.error ? (
+                    <p className="text-sm text-red-500">{teamResult.error}</p>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted">
+                        <span className="font-medium text-foreground tabular-nums">
+                          {teamResult.members.length}
+                        </span>{" "}
+                        {teamResult.members.length === 1 ? "member" : "members"}{" "}
+                        —{" "}
+                        {standingBreakdown(teamResult.members)
+                          .map(({ label, count }) => `${count} ${label}`)
+                          .join(" · ")}
+                      </p>
+                      <ArrowLink href="/team" className="mt-1">
+                        View team
+                      </ArrowLink>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {invitesResult && (
+                <div className="border-t border-border pt-4">
+                  {invitesResult.error ? (
+                    <p className="text-sm text-red-500">
+                      {invitesResult.error}
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted">
+                        <span className="font-medium text-foreground tabular-nums">
+                          {pendingCount}
+                        </span>{" "}
+                        pending {pendingCount === 1 ? "invitation" : "invitations"}
+                      </p>
+                      <ArrowLink href="/invitations" className="mt-1">
+                        Manage
+                      </ArrowLink>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card id="ecosystem">
+            <p className={EYEBROW}>Explore the ecosystem</p>
+            <div className="mt-3 flex flex-col divide-y divide-border">
+              {ECOSYSTEM.map((item, i) => (
+                <a
+                  key={item.domain}
+                  href={`https://${item.domain}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                >
+                  <span className="font-mono text-xs text-muted">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium transition-colors group-hover:text-accent">
+                      {item.name}
+                    </span>
+                    <span className="block truncate text-xs text-muted">
+                      {item.domain}
+                    </span>
+                  </span>
+                  <span className="text-muted transition-transform duration-150 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent">
+                    ↗
+                  </span>
+                </a>
+              ))}
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );
