@@ -36,14 +36,19 @@ export function Nav({
         <Link href="/" className="flex items-center gap-2">
           <Image
             src="/assets/zenyukti-logo.png"
-            alt="ZenYukti"
+            alt=""
             width={32}
             height={32}
             className="h-8 w-8 shrink-0"
             priority
           />
-          <span className="hidden text-xs text-muted sm:inline">
-            Learn. Build. Share.
+          <span className="flex flex-col leading-tight">
+            <span className="font-mono text-lg font-semibold tracking-tight">
+              Zen<span className="text-accent">Yukti</span>
+            </span>
+            <span className="hidden text-xs text-muted sm:block">
+              Learn. Build. Share.
+            </span>
           </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
