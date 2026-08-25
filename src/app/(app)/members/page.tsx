@@ -1,14 +1,7 @@
-import Link from "next/link";
 import { requireSession } from "@/lib/session";
 import { apiFetch, ApiError } from "@/lib/api";
-import { StatusBadge } from "@/components/StatusBadge";
+import { MembersDirectory } from "@/components/MembersDirectory";
 import type { CoreMember, CoreMembersResponse } from "@/lib/types";
-
-const STANDING_LABELS: Record<string, string> = {
-  founder: "Founder",
-  zencrew: "ZenCrew",
-  zenmate: "ZenMate",
-};
 
 export default async function MembersPage() {
   const session = await requireSession();
@@ -41,37 +34,15 @@ export default async function MembersPage() {
         </p>
       </div>
 
-      {loadError && (
+      {loadError ? (
         <p className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-500">
           {loadError}
         </p>
+      ) : members.length === 0 ? (
+        <p className="text-sm text-muted">No members to show.</p>
+      ) : (
+        <MembersDirectory members={members} />
       )}
-
-      {!loadError &&
-        (members.length === 0 ? (
-          <p className="text-sm text-muted">No members to show.</p>
-        ) : (
-          <div className="divide-y divide-border border-t border-border">
-            {members.map((member) => (
-              <Link
-                key={member.id}
-                href={`/members/${member.id}`}
-                className="flex items-center justify-between gap-4 py-3 hover:bg-surface"
-              >
-                <span className="text-sm">{member.email}</span>
-                <div className="flex items-center gap-2">
-                  {member.standing_role && (
-                    <span className="text-xs text-muted">
-                      {STANDING_LABELS[member.standing_role] ??
-                        member.standing_role}
-                    </span>
-                  )}
-                  <StatusBadge status={member.status} />
-                </div>
-              </Link>
-            ))}
-          </div>
-        ))}
     </div>
   );
 }

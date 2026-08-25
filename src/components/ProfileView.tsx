@@ -1,53 +1,79 @@
 "use client";
 
 import { useState } from "react";
-import { apiFetch, ApiError } from "@/lib/api";
-import { createClient } from "@/lib/supabase/client";
-import type { CoreProfile } from "@/lib/types";
+import { updateProfile } from "@/lib/profile-actions";
+import { profileCompleteness } from "@/lib/profile";
+import { AvatarUpload } from "@/components/AvatarUpload";
+import type { CoreProfile, ProfileSocials } from "@/lib/types";
 
-const EDITABLE_FIELDS: {
-  key: keyof CoreProfile;
-  label: string;
-  placeholder?: string;
-}[] = [
-  { key: "display_name", label: "Display name" },
-  { key: "title", label: "Title / role" },
-  { key: "bio", label: "Bio" },
-  { key: "avatar_url", label: "Avatar URL" },
+const SOCIAL_FIELDS: { key: keyof ProfileSocials; label: string; placeholder: string }[] = [
   { key: "github", label: "GitHub", placeholder: "https://github.com/…" },
   { key: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/in/…" },
-  { key: "website", label: "Website" },
+  { key: "x", label: "X (Twitter)", placeholder: "https://x.com/…" },
+  { key: "instagram", label: "Instagram", placeholder: "https://instagram.com/…" },
+  { key: "website", label: "Website", placeholder: "https://…" },
 ];
 
-type FormState = Record<string, string>;
-
-function profileToForm(profile: CoreProfile | null): FormState {
-  const state: FormState = {};
-  for (const { key } of EDITABLE_FIELDS) {
-    const value = profile?.[key];
-    state[key] = typeof value === "string" ? value : "";
-  }
-  state.skills = profile?.skills?.join(", ") ?? "";
-  return state;
+interface FormState {
+  display_name: string;
+  title: string;
+  bio: string;
+  avatar_url: string;
+  github: string;
+  linkedin: string;
+  x: string;
+  instagram: string;
+  website: string;
+  skills: string;
+  is_public: boolean;
 }
+
+function profileToForm(profile: CoreProfile | null, fallbackName: string): FormState {
+  return {
+    display_name: profile?.display_name ?? fallbackName,
+    title: profile?.title ?? "",
+    bio: profile?.bio ?? "",
+    avatar_url: profile?.avatar_url ?? "",
+    github: profile?.socials.github ?? "",
+    linkedin: profile?.socials.linkedin ?? "",
+    x: profile?.socials.x ?? "",
+    instagram: profile?.socials.instagram ?? "",
+    website: profile?.socials.website ?? "",
+    skills: profile?.skills.join(", ") ?? "",
+    is_public: profile?.is_public ?? false,
+  };
+}
+
+const INPUT_CLASS =
+  "rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent";
 
 export function ProfileView({
   initialProfile,
   email,
+  authUserId,
 }: {
   initialProfile: CoreProfile | null;
   email: string;
+  authUserId: string;
 }) {
   const [profile, setProfile] = useState(initialProfile);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<FormState>(() => profileToForm(initialProfile));
+  const [form, setForm] = useState<FormState>(() =>
+    profileToForm(initialProfile, email),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   function startEditing() {
-    setForm(profileToForm(profile));
+    setForm(profileToForm(profile, email));
     setError(null);
+    setSaved(false);
     setEditing(true);
+  }
+
+  function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }));
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -55,84 +81,140 @@ export function ProfileView({
     setSaving(true);
     setError(null);
 
-    const payload: Partial<CoreProfile> = {
-      display_name: form.display_name || undefined,
-      title: form.title || undefined,
-      bio: form.bio || undefined,
-      avatar_url: form.avatar_url || undefined,
-      github: form.github || undefined,
-      linkedin: form.linkedin || undefined,
-      website: form.website || undefined,
-      skills: form.skills
-        ? form.skills.split(",").map((s) => s.trim()).filter(Boolean)
-        : undefined,
-    };
-
-    try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const updated = await apiFetch<CoreProfile>("/v1/me/profile", session?.access_token ?? null, {
-        method: "PATCH",
-        body: JSON.stringify(payload),
-      });
-      setProfile(updated);
-      setEditing(false);
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.detail || err.message
-          : "Failed to save profile.",
-      );
-    } finally {
-      setSaving(false);
+    const socials: ProfileSocials = {};
+    for (const { key } of SOCIAL_FIELDS) {
+      if (form[key]) socials[key] = form[key];
     }
+
+    const result = await updateProfile({
+      display_name: form.display_name,
+      avatar_url: form.avatar_url || undefined,
+      bio: form.bio || undefined,
+      title: form.title || undefined,
+      socials,
+      skills: form.skills
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      is_public: form.is_public,
+    });
+
+    setSaving(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setProfile(result.profile);
+    setEditing(false);
+    setSaved(true);
   }
+
+  const displayName = profile?.display_name || email;
+  const stats = profile ? profileCompleteness(profile) : null;
 
   if (editing) {
     return (
-      <form onSubmit={handleSave} className="flex flex-col gap-4">
-        {EDITABLE_FIELDS.map(({ key, label, placeholder }) => (
-          <div key={key} className="flex flex-col gap-1.5">
-            <label htmlFor={key} className="text-sm font-medium">
-              {label}
+      <form onSubmit={handleSave} className="flex flex-col gap-6">
+        <AvatarUpload
+          authUserId={authUserId}
+          displayName={form.display_name || email}
+          avatarUrl={form.avatar_url || null}
+          onChange={(url) => updateField("avatar_url", url ?? "")}
+        />
+
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="display_name" className="text-sm font-medium">
+              Display name
             </label>
-            {key === "bio" ? (
-              <textarea
-                id={key}
-                rows={3}
-                value={form[key]}
-                onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                className="rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
-              />
-            ) : (
+            <input
+              id="display_name"
+              type="text"
+              required
+              value={form.display_name}
+              onChange={(e) => updateField("display_name", e.target.value)}
+              className={INPUT_CLASS}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="title" className="text-sm font-medium">
+              Title / role
+            </label>
+            <input
+              id="title"
+              type="text"
+              value={form.title}
+              onChange={(e) => updateField("title", e.target.value)}
+              placeholder="e.g. ZenCrew · Backend"
+              className={INPUT_CLASS}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="bio" className="text-sm font-medium">
+              Bio
+            </label>
+            <textarea
+              id="bio"
+              rows={3}
+              value={form.bio}
+              onChange={(e) => updateField("bio", e.target.value)}
+              className={INPUT_CLASS}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="skills" className="text-sm font-medium">
+              Skills
+            </label>
+            <input
+              id="skills"
+              type="text"
+              value={form.skills}
+              placeholder="Comma-separated, e.g. Go, React, Postgres"
+              onChange={(e) => updateField("skills", e.target.value)}
+              className={INPUT_CLASS}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4 border-t border-border pt-4">
+          <p className="text-xs uppercase tracking-wide text-muted">
+            Social links
+          </p>
+          {SOCIAL_FIELDS.map(({ key, label, placeholder }) => (
+            <div key={key} className="flex flex-col gap-1.5">
+              <label htmlFor={key} className="text-sm font-medium">
+                {label}
+              </label>
               <input
                 id={key}
                 type="text"
                 value={form[key]}
                 placeholder={placeholder}
-                onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                className="rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+                onChange={(e) => updateField(key, e.target.value)}
+                className={INPUT_CLASS}
               />
-            )}
-          </div>
-        ))}
-
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="skills" className="text-sm font-medium">
-            Skills
-          </label>
-          <input
-            id="skills"
-            type="text"
-            value={form.skills}
-            placeholder="Comma-separated, e.g. Go, React, Postgres"
-            onChange={(e) => setForm({ ...form, skills: e.target.value })}
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
-          />
+            </div>
+          ))}
         </div>
+
+        <label className="flex items-start gap-2.5 border-t border-border pt-4 text-sm">
+          <input
+            type="checkbox"
+            checked={form.is_public}
+            onChange={(e) => updateField("is_public", e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            Make my profile visible to other ZenYukti members
+            <span className="block text-xs text-muted">
+              When off, only you can see this information — teammates will
+              still see your email and status in the member directory.
+            </span>
+          </span>
+        </label>
 
         {error && (
           <p className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-500">
@@ -161,10 +243,14 @@ export function ProfileView({
     );
   }
 
-  const displayName = profile?.display_name || profile?.name || email;
-
   return (
     <div className="flex flex-col gap-6">
+      {saved && (
+        <p className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600 dark:text-emerald-400">
+          Profile saved.
+        </p>
+      )}
+
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
           {profile?.avatar_url ? (
@@ -197,7 +283,7 @@ export function ProfileView({
 
       {profile?.bio && <p className="text-sm leading-relaxed">{profile.bio}</p>}
 
-      {profile?.skills && profile.skills.length > 0 && (
+      {profile && profile.skills.length > 0 && (
         <div>
           <p className="mb-2 text-xs uppercase tracking-wide text-muted">
             Skills
@@ -215,47 +301,62 @@ export function ProfileView({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-4 text-sm">
-        {profile?.team && (
-          <span className="text-muted">
-            Team: <span className="text-foreground">{profile.team}</span>
-          </span>
-        )}
-        {profile?.github && (
-          <a
-            href={profile.github}
-            target="_blank"
-            rel="noreferrer"
-            className="text-accent hover:underline"
-          >
-            GitHub
-          </a>
-        )}
-        {profile?.linkedin && (
-          <a
-            href={profile.linkedin}
-            target="_blank"
-            rel="noreferrer"
-            className="text-accent hover:underline"
-          >
-            LinkedIn
-          </a>
-        )}
-        {profile?.website && (
-          <a
-            href={profile.website}
-            target="_blank"
-            rel="noreferrer"
-            className="text-accent hover:underline"
-          >
-            Website
-          </a>
-        )}
-      </div>
+      {profile && Object.values(profile.socials).some(Boolean) && (
+        <div className="flex flex-wrap gap-4 text-sm">
+          {SOCIAL_FIELDS.map(
+            ({ key, label }) =>
+              profile.socials[key] && (
+                <a
+                  key={key}
+                  href={profile.socials[key]}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-accent hover:underline"
+                >
+                  {label}
+                </a>
+              ),
+          )}
+        </div>
+      )}
+
+      {profile && (
+        <div className="flex flex-col gap-1.5 border-t border-border pt-4">
+          {stats && (
+            <div className="flex items-center gap-3">
+              <div
+                role="progressbar"
+                aria-label="Profile completeness"
+                aria-valuenow={stats.percent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                className="h-1.5 flex-1 rounded-full bg-border"
+              >
+                <div
+                  className="h-1.5 rounded-full bg-accent"
+                  style={{ width: `${stats.percent}%` }}
+                />
+              </div>
+              <span className="text-sm tabular-nums text-muted">
+                {stats.percent}%
+              </span>
+            </div>
+          )}
+          <p className="text-xs text-muted">
+            {stats && stats.missing.length > 0
+              ? `Add ${stats.missing.join(", ")} to complete your profile. `
+              : ""}
+            {profile.is_public
+              ? "Visible to other ZenYukti members."
+              : "Only visible to you."}
+          </p>
+        </div>
+      )}
 
       {!profile && (
         <p className="text-sm text-muted">
-          No profile data yet — click Edit profile to add yours.
+          You haven&apos;t set up your profile yet — click Edit profile to
+          add yours.
         </p>
       )}
     </div>

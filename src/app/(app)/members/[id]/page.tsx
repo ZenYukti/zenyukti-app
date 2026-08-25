@@ -3,17 +3,9 @@ import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/session";
 import { apiFetch, ApiError } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
+import { standingLabel } from "@/lib/standing";
+import { SOCIAL_LABELS } from "@/lib/profile";
 import type { CoreMemberDetail } from "@/lib/types";
-
-const STANDING_LABELS: Record<string, string> = {
-  founder: "Founder",
-  zencrew: "ZenCrew",
-  zenmate: "ZenMate",
-};
-
-function roleLabel(slug: string) {
-  return STANDING_LABELS[slug] ?? slug;
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -63,14 +55,33 @@ export default async function MemberDetailPage({
       {member && (
         <>
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface text-xl font-medium text-muted">
-              {member.email.slice(0, 1).toUpperCase()}
-            </div>
+            {member.profile?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={member.profile.avatar_url}
+                alt={member.profile.display_name}
+                className="h-16 w-16 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface text-xl font-medium text-muted">
+                {(member.profile?.display_name || member.email)
+                  .slice(0, 1)
+                  .toUpperCase()}
+              </div>
+            )}
             <div>
-              <h1 className="text-xl font-semibold">{member.email}</h1>
+              <h1 className="text-xl font-semibold">
+                {member.profile?.display_name || member.email}
+              </h1>
+              {member.profile?.title && (
+                <p className="text-sm text-muted">{member.profile.title}</p>
+              )}
+              {member.profile?.display_name && (
+                <p className="text-sm text-muted">{member.email}</p>
+              )}
               {member.standing_role && (
                 <p className="text-sm text-muted">
-                  {roleLabel(member.standing_role)}
+                  {standingLabel(member.standing_role)}
                 </p>
               )}
             </div>
@@ -78,6 +89,48 @@ export default async function MemberDetailPage({
               <StatusBadge status={member.status} />
             </div>
           </div>
+
+          {member.profile?.bio && (
+            <p className="text-sm leading-relaxed">{member.profile.bio}</p>
+          )}
+
+          {member.profile && member.profile.skills.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-wide text-muted">
+                Skills
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {member.profile.skills.map((skill) => (
+                  <span
+                    key={skill}
+                    className="rounded-full bg-surface px-2.5 py-1 text-xs"
+                  >
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {member.profile &&
+            Object.values(member.profile.socials).some(Boolean) && (
+              <div className="flex flex-wrap gap-4 text-sm">
+                {SOCIAL_LABELS.map(
+                  ({ key, label }) =>
+                    member.profile!.socials[key] && (
+                      <a
+                        key={key}
+                        href={member.profile!.socials[key]}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-accent hover:underline"
+                      >
+                        {label}
+                      </a>
+                    ),
+                )}
+              </div>
+            )}
 
           {member.roles.length > 0 && (
             <div>
@@ -90,7 +143,7 @@ export default async function MemberDetailPage({
                     key={`${role.slug}-${role.scope_type}-${role.scope_id ?? "global"}`}
                     className="rounded-full bg-surface px-2.5 py-1 text-xs"
                   >
-                    {roleLabel(role.slug)}
+                    {standingLabel(role.slug)}
                   </span>
                 ))}
               </div>
@@ -99,6 +152,8 @@ export default async function MemberDetailPage({
 
           <p className="text-sm text-muted">
             Member since {formatDate(member.created_at)}
+            {member.disabled_at &&
+              ` · Disabled ${formatDate(member.disabled_at)}`}
           </p>
         </>
       )}

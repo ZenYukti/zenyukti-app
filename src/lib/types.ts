@@ -2,8 +2,7 @@
  * Core API (api.zenyukti.in) response shapes.
  *
  * Verified directly against zenyukti-os's handlers (internal/modules/*),
- * not guessed from the product spec. CoreProfile is the one exception —
- * self-profile editing is out of scope for this pass, so it's left as-is.
+ * not guessed from the product spec.
  */
 
 export type MemberStatus = "INVITED" | "ACTIVE" | "SUSPENDED" | "DISABLED" | string;
@@ -16,18 +15,43 @@ export interface CoreUser {
   created_at: string;
 }
 
-export interface CoreProfile {
-  user_id?: string;
-  name?: string;
-  display_name?: string;
-  bio?: string;
-  avatar_url?: string;
-  title?: string;
+/**
+ * The socials JSONB column is opaque to the backend — it stores and
+ * returns whatever object shape is sent, without validating specific
+ * keys (see identity.Handler.UpdateProfile). This is the shape the
+ * frontend has standardized on.
+ */
+export interface ProfileSocials {
   github?: string;
   linkedin?: string;
+  x?: string;
+  instagram?: string;
   website?: string;
-  skills?: string[];
-  team?: string;
+}
+
+/** GET/PATCH /v1/me/profile. 404 on GET if no profile row exists yet. */
+export interface CoreProfile {
+  display_name: string;
+  username?: string;
+  avatar_url?: string;
+  bio?: string;
+  title?: string;
+  socials: ProfileSocials;
+  skills: string[];
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** PATCH /v1/me/profile request body — display_name is required (NOT NULL column). */
+export interface UpdateProfileRequest {
+  display_name: string;
+  avatar_url?: string;
+  bio?: string;
+  title?: string;
+  socials: ProfileSocials;
+  skills: string[];
+  is_public: boolean;
 }
 
 /** GET /v1/me/roles — one of the caller's currently-effective role grants. */
@@ -41,10 +65,22 @@ export interface CoreRolesResponse {
 }
 
 /**
- * GET /v1/users and GET /v1/users/:id — no nested `profile` exists for
- * other users on the real API (only /v1/me/profile returns profile data,
- * and only for the caller's own account).
+ * Another member's profile as visible on GET /v1/users and
+ * /v1/users/:id — only ever present when that member set is_public=true
+ * on their own profile. Deliberately narrower than CoreProfile: no
+ * username/is_public/created_at/updated_at, which are the owner's own
+ * business (see members.memberProfileResponse).
  */
+export interface CoreMemberProfile {
+  display_name: string;
+  avatar_url?: string;
+  title?: string;
+  bio?: string;
+  socials: ProfileSocials;
+  skills: string[];
+}
+
+/** GET /v1/users and GET /v1/users/:id. */
 export interface CoreMember {
   id: string;
   email: string;
@@ -52,6 +88,7 @@ export interface CoreMember {
   standing_role?: string | null;
   created_at: string;
   disabled_at?: string | null;
+  profile?: CoreMemberProfile | null;
 }
 
 export interface CoreMembersResponse {
@@ -96,6 +133,11 @@ export interface CoreInvitation {
 
 export interface CoreInvitationsResponse {
   invitations: CoreInvitation[];
+}
+
+/** GET /v1/invitations/lookup?token=... — public, no auth required. */
+export interface CoreInvitationLookup {
+  email: string;
 }
 
 export interface CoreApiError {

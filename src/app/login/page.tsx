@@ -39,9 +39,12 @@ function LoginForm() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-1">
+        <div className="mb-8 flex flex-col items-center gap-2 text-center">
           <Logo />
-          <p className="text-sm text-muted">Sign in to your ZenYukti account</p>
+          <p className="text-sm text-muted">
+            ZenYukti&apos;s internal platform — sign in with your ZenYukti
+            account.
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -93,8 +96,9 @@ function LoginForm() {
         </form>
 
         <p className="mt-6 text-center text-xs text-muted">
-          ZenYukti is invite-only. Received an invite?{" "}
-          Use the link from your email to set up your account.
+          ZenYukti is invite-only — there&apos;s no public sign-up. If you
+          received an invitation email, use the link in it to create your
+          account first.
         </p>
       </div>
     </div>

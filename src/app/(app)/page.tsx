@@ -7,6 +7,8 @@ import {
   canViewMembers,
   permissionKeys,
 } from "@/lib/permissions";
+import { profileCompleteness } from "@/lib/profile";
+import { standingBreakdown } from "@/lib/standing";
 import type {
   CoreUser,
   CoreProfile,
@@ -17,52 +19,6 @@ import type {
   CoreInvitation,
   CoreInvitationsResponse,
 } from "@/lib/types";
-
-// Only fields the real /v1/me/profile response actually has (see
-// lib/types.ts) — the rest of the speculative profile fields don't exist
-// on the API and would always read as missing.
-const PROFILE_FIELDS: { key: keyof CoreProfile; label: string }[] = [
-  { key: "display_name", label: "display name" },
-  { key: "avatar_url", label: "avatar" },
-  { key: "bio", label: "bio" },
-];
-
-function profileCompleteness(profile: CoreProfile) {
-  const missing = PROFILE_FIELDS.filter((f) => !profile[f.key]);
-  const filled = PROFILE_FIELDS.length - missing.length;
-  return {
-    percent: Math.round((filled / PROFILE_FIELDS.length) * 100),
-    missing: missing.map((f) => f.label),
-  };
-}
-
-const STANDING_LABELS: Record<string, string> = {
-  founder: "Founder",
-  zencrew: "ZenCrew",
-  zenmate: "ZenMate",
-};
-const STANDING_ORDER = ["founder", "zencrew", "zenmate"];
-
-function standingBreakdown(members: CoreMember[]) {
-  const counts = new Map<string, number>();
-  for (const m of members) {
-    const slug = m.standing_role ?? "";
-    counts.set(slug, (counts.get(slug) ?? 0) + 1);
-  }
-  return [...counts.entries()]
-    .sort(([a], [b]) => {
-      const ai = STANDING_ORDER.indexOf(a);
-      const bi = STANDING_ORDER.indexOf(b);
-      return (
-        (ai === -1 ? STANDING_ORDER.length : ai) -
-        (bi === -1 ? STANDING_ORDER.length : bi)
-      );
-    })
-    .map(([slug, count]) => ({
-      label: slug ? (STANDING_LABELS[slug] ?? slug) : "Unassigned",
-      count,
-    }));
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {

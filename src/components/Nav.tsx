@@ -34,7 +34,7 @@ export function Nav({
     <header className="border-b border-border">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <Link href="/">
-          <Logo />
+          <Logo withTagline />
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
           {links.map((link) => {

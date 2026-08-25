@@ -16,10 +16,15 @@ export default async function ProfilePage() {
       <div>
         <h1 className="text-2xl font-semibold">Your profile</h1>
         <p className="mt-1 text-sm text-muted">
-          This is how your ZenYukti identity appears to other members.
+          Your ZenYukti identity — visible to other members if you choose
+          to make it public.
         </p>
       </div>
-      <ProfileView initialProfile={profile} email={session.user.email ?? ""} />
+      <ProfileView
+        initialProfile={profile}
+        email={session.user.email ?? ""}
+        authUserId={session.user.id}
+      />
     </div>
   );
 }
