@@ -47,6 +47,10 @@ function errorMessage(err: unknown, fallback: string, forbidden: string) {
   return fallback;
 }
 
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 function Card({
   id,
   className = "",
@@ -200,35 +204,30 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-10">
-      <div className="flex flex-col gap-5 border-b border-border pb-8">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-4">
-            {profile?.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={profile.avatar_url}
-                alt={displayName}
-                className="h-16 w-16 shrink-0 rounded-full object-cover"
-              />
-            ) : (
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface text-xl font-medium text-muted">
-                {displayName.slice(0, 1).toUpperCase()}
-              </div>
-            )}
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                Welcome back, {displayName}
-              </h1>
-              <p className="mt-1.5 text-sm text-muted">{roleLabel}</p>
+      <div className="flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-center gap-4">
+          {profile?.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={profile.avatar_url}
+              alt={displayName}
+              className="h-16 w-16 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface text-xl font-medium text-muted">
+              {displayName.slice(0, 1).toUpperCase()}
             </div>
-          </div>
-          <div className="sm:pt-2">
-            <StatusDot status={me.status} />
+          )}
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              Welcome back, {displayName}
+            </h1>
+            <p className="mt-1.5 text-sm text-muted">{roleLabel}</p>
           </div>
         </div>
-        <p className="font-mono text-sm text-muted">
-          {"// Your corner of the ZenYukti universe."}
-        </p>
+        <div className="sm:pt-2">
+          <StatusDot status={me.status} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -300,14 +299,30 @@ export default async function DashboardPage() {
             </div>
           </Card>
 
-          <div className="border-l-2 border-accent/60 pl-5">
+          <Card className="bg-surface">
             <p className={EYEBROW}>Keep building</p>
             <h3 className="mt-2 text-lg font-semibold">{nextStep.headline}</h3>
             <p className="mt-1 text-sm text-muted">{nextStep.body}</p>
-            <ArrowLink href={nextStep.href} className="mt-3">
+
+            {profileStats && (
+              <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-1.5 border-t border-border pt-4 sm:grid-cols-2">
+                {profileStats.checks.map((check) => (
+                  <div key={check.label} className="flex items-center gap-2 text-sm">
+                    <span className={check.filled ? "text-accent" : "text-muted"}>
+                      {check.filled ? "✓" : "○"}
+                    </span>
+                    <span className={check.filled ? "text-foreground" : "text-muted"}>
+                      {capitalize(check.label)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <ArrowLink href={nextStep.href} className="mt-4">
               {nextStep.cta}
             </ArrowLink>
-          </div>
+          </Card>
         </div>
 
         <div className="flex flex-col gap-6">
@@ -340,6 +355,28 @@ export default async function DashboardPage() {
                       style={{ width: `${profileStats.percent}%` }}
                     />
                   </div>
+                </div>
+              )}
+
+              {profile && (
+                <div className="border-t border-border pt-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted">Visibility</span>
+                    <span
+                      className={
+                        profile.is_public
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-muted"
+                      }
+                    >
+                      {profile.is_public ? "Public" : "Private"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted">
+                    {profile.is_public
+                      ? "Other ZenMates with directory access can find you."
+                      : "Only you can see this profile right now."}
+                  </p>
                 </div>
               )}
 

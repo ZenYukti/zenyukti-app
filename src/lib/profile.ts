@@ -42,5 +42,6 @@ export function profileCompleteness(profile: CoreProfile) {
   return {
     percent: Math.round(((checks.length - missing.length) / checks.length) * 100),
     missing,
+    checks,
   };
 }
