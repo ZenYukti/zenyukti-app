@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { lookupInvitation } from "@/lib/invitation-actions";
 import { closedStateFor } from "@/lib/invitation-errors";
 import { AcceptInvitationForm, Message } from "@/components/AcceptInvitationForm";
@@ -30,11 +31,29 @@ export default async function AcceptInvitationPage({
     // failure) gets a safe generic message instead of the raw backend
     // `detail`, which is written for API consumers, not end users, and
     // could name an internal implementation detail.
-    const state = closedStateFor(result.status, result.error) ?? {
-      title: "Couldn't load this invitation",
-      body: "Something went wrong loading this invitation. Please try again, or ask whoever invited you to send a new link.",
-    };
-    return <Message title={state.title} body={state.body} />;
+    const state = closedStateFor(result.status, result.error);
+    if (state) {
+      return (
+        <Message
+          title={state.title}
+          body={state.body}
+          action={
+            <Link
+              href="/login"
+              className="mt-4 inline-block text-sm text-accent hover:underline"
+            >
+              Go to sign in
+            </Link>
+          }
+        />
+      );
+    }
+    return (
+      <Message
+        title="Couldn't load this invitation"
+        body="Something went wrong loading this invitation. Please try again, or ask whoever invited you to send a new link."
+      />
+    );
   }
 
   return <AcceptInvitationForm token={token} email={result.email} />;

@@ -63,8 +63,12 @@ export function AvatarUpload({
       // Cache-bust so a same-URL re-upload shows immediately instead of a
       // browser-cached copy of the old image.
       onChange(`${publicUrl}?v=${Date.now()}`);
-    } catch {
-      setError("Upload failed. Please try again.");
+    } catch (err) {
+      // Surface the real Supabase Storage error (e.g. "Bucket not found")
+      // instead of a generic message — this is the only place that error
+      // is ever visible, and a bare catch here is what made an actual
+      // provisioning problem look like an unexplained failure.
+      setError(err instanceof Error ? err.message : "Upload failed. Please try again.");
       setPreview(avatarUrl);
     } finally {
       setUploading(false);
@@ -79,8 +83,10 @@ export function AvatarUpload({
       await supabase.storage.from("avatars").remove([`${authUserId}/avatar`]);
       setPreview(null);
       onChange(null);
-    } catch {
-      setError("Couldn't remove the photo. Please try again.");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Couldn't remove the photo. Please try again.",
+      );
     } finally {
       setUploading(false);
     }
