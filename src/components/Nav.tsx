@@ -1,8 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Logo } from "@/components/Logo";
 import { SignOutButton } from "@/components/SignOutButton";
 
 const LINKS = [
@@ -33,8 +33,18 @@ export function Nav({
   return (
     <header className="border-b border-border">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-        <Link href="/">
-          <Logo withTagline />
+        <Link href="/" className="flex items-center gap-2">
+          <Image
+            src="/assets/zenyukti-logo.png"
+            alt="ZenYukti"
+            width={32}
+            height={32}
+            className="h-8 w-8 shrink-0"
+            priority
+          />
+          <span className="hidden text-xs text-muted sm:inline">
+            Learn. Build. Share.
+          </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
           {links.map((link) => {
