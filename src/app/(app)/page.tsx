@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireSession } from "@/lib/session";
 import { apiFetch, ApiError } from "@/lib/api";
 import { StatusDot } from "@/components/StatusBadge";
+import { CopyButton } from "@/components/CopyButton";
 import {
   canManageInvitations,
   canViewMembers,
@@ -299,6 +300,65 @@ export default async function DashboardPage() {
             </div>
           </Card>
 
+          <Card>
+            <p className={EYEBROW}>
+              {profile?.username ? "Your public profile" : "Claim your public profile"}
+            </p>
+            {profile?.username ? (
+              <div className="mt-3 flex flex-col gap-3">
+                <p className="text-sm text-muted">
+                  {profile.is_public
+                    ? "Your profile is live and ready to share."
+                    : "Private — only you can see this. Make it public to share your link."}
+                </p>
+
+                <div className="flex items-center gap-2">
+                  {profile.is_public ? (
+                    <Link
+                      href={`/u/${profile.username}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="truncate font-mono text-sm text-accent hover:underline"
+                    >
+                      app.zenyukti.in/u/{profile.username}
+                    </Link>
+                  ) : (
+                    <p className="truncate font-mono text-sm text-muted">
+                      app.zenyukti.in/u/{profile.username}
+                    </p>
+                  )}
+                  <CopyButton
+                    value={`https://app.zenyukti.in/u/${profile.username}`}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  {profile.is_public && (
+                    <Link
+                      href={`/u/${profile.username}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group inline-flex items-center gap-1 text-sm text-accent hover:underline"
+                    >
+                      <span>View public profile</span>
+                      <span className="inline-block transition-transform duration-150 group-hover:-translate-y-0.5 group-hover:translate-x-0.5">
+                        ↗
+                      </span>
+                    </Link>
+                  )}
+                  <ArrowLink href="/profile">Edit profile</ArrowLink>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 flex flex-col gap-3">
+                <p className="text-sm text-muted">
+                  Choose a username and get your own public ZenYukti profile.
+                </p>
+                <ArrowLink href="/profile">Claim your public profile</ArrowLink>
+              </div>
+            )}
+          </Card>
+
           <Card className="bg-surface">
             <p className={EYEBROW}>Keep building</p>
             <h3 className="mt-2 text-lg font-semibold">{nextStep.headline}</h3>
@@ -355,28 +415,6 @@ export default async function DashboardPage() {
                       style={{ width: `${profileStats.percent}%` }}
                     />
                   </div>
-                </div>
-              )}
-
-              {profile && (
-                <div className="border-t border-border pt-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted">Visibility</span>
-                    <span
-                      className={
-                        profile.is_public
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-muted"
-                      }
-                    >
-                      {profile.is_public ? "Public" : "Private"}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-muted">
-                    {profile.is_public
-                      ? "Other ZenMates with directory access can find you."
-                      : "Only you can see this profile right now."}
-                  </p>
                 </div>
               )}
 

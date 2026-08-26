@@ -46,6 +46,7 @@ export interface CoreProfile {
 /** PATCH /v1/me/profile request body — display_name is required (NOT NULL column). */
 export interface UpdateProfileRequest {
   display_name: string;
+  username?: string;
   avatar_url?: string;
   bio?: string;
   title?: string;
@@ -138,6 +139,22 @@ export interface CoreInvitationsResponse {
 /** GET /v1/invitations/lookup?token=... — public, no auth required. */
 export interface CoreInvitationLookup {
   email: string;
+}
+
+/**
+ * GET /v1/profiles/u/{username} — public, no auth required. Backs
+ * app.zenyukti.in/u/<username>. Deliberately narrower than CoreProfile: no
+ * id/email/status/is_public/timestamps — the backend never returns those
+ * here at all (see publicprofiles.Handler.Get).
+ */
+export interface CorePublicProfile {
+  username: string;
+  display_name: string;
+  avatar_url?: string;
+  title?: string;
+  bio?: string;
+  skills: string[];
+  socials: ProfileSocials;
 }
 
 export interface CoreApiError {

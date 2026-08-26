@@ -1,10 +1,37 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { updateProfile } from "@/lib/profile-actions";
 import { profileCompleteness } from "@/lib/profile";
 import { AvatarUpload } from "@/components/AvatarUpload";
+import { CopyButton } from "@/components/CopyButton";
 import type { CoreProfile, ProfileSocials } from "@/lib/types";
+
+/** The interactive app.zenyukti.in/u/<username> control — same shape in
+ * both the edit-mode preview and the read-mode display, per spec. */
+function PublicProfileUrl({
+  username,
+  className = "",
+}: {
+  username: string;
+  className?: string;
+}) {
+  const path = `/u/${username}`;
+  return (
+    <div className={`flex items-center gap-3 ${className}`}>
+      <Link
+        href={path}
+        target="_blank"
+        rel="noreferrer"
+        className="min-w-0 truncate font-mono text-xs text-accent hover:underline"
+      >
+        app.zenyukti.in{path}
+      </Link>
+      <CopyButton value={`https://app.zenyukti.in${path}`} />
+    </div>
+  );
+}
 
 const SOCIAL_FIELDS: { key: keyof ProfileSocials; label: string; placeholder: string }[] = [
   { key: "github", label: "GitHub", placeholder: "https://github.com/…" },
@@ -16,6 +43,7 @@ const SOCIAL_FIELDS: { key: keyof ProfileSocials; label: string; placeholder: st
 
 interface FormState {
   display_name: string;
+  username: string;
   title: string;
   bio: string;
   avatar_url: string;
@@ -31,6 +59,7 @@ interface FormState {
 function profileToForm(profile: CoreProfile | null, fallbackName: string): FormState {
   return {
     display_name: profile?.display_name ?? fallbackName,
+    username: profile?.username ?? "",
     title: profile?.title ?? "",
     bio: profile?.bio ?? "",
     avatar_url: profile?.avatar_url ?? "",
@@ -88,6 +117,7 @@ export function ProfileView({
 
     const result = await updateProfile({
       display_name: form.display_name,
+      username: form.username || undefined,
       avatar_url: form.avatar_url || undefined,
       bio: form.bio || undefined,
       title: form.title || undefined,
@@ -135,6 +165,30 @@ export function ProfileView({
               onChange={(e) => updateField("display_name", e.target.value)}
               className={INPUT_CLASS}
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="username" className="text-sm font-medium">
+              Username
+            </label>
+            <input
+              id="username"
+              type="text"
+              value={form.username}
+              onChange={(e) => updateField("username", e.target.value)}
+              placeholder="e.g. nomad_42"
+              className={INPUT_CLASS}
+            />
+            <p className="text-xs text-muted">
+              3-30 characters: lowercase letters, numbers, and underscores,
+              starting with a letter. This becomes your public ZenYukti URL.
+            </p>
+            {form.username && (
+              <PublicProfileUrl
+                username={form.username}
+                className="rounded-md border border-border bg-surface px-3 py-2"
+              />
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -271,6 +325,9 @@ export function ProfileView({
               <p className="text-sm text-muted">{profile.title}</p>
             )}
             <p className="text-sm text-muted">{email}</p>
+            {profile?.username && (
+              <PublicProfileUrl username={profile.username} className="mt-1" />
+            )}
           </div>
         </div>
         <button

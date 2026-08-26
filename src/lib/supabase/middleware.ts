@@ -7,6 +7,8 @@ const PUBLIC_PATHS = [
   // Compatibility redirect for zenyukti-os's emailed link shape — see
   // src/app/v1/invitations/accept/route.ts.
   "/v1/invitations/accept",
+  // Public, shareable member identity pages — see src/app/u/[username]/page.tsx.
+  "/u",
 ];
 
 function isPublicPath(pathname: string) {
