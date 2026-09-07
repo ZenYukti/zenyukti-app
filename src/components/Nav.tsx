@@ -44,7 +44,7 @@ export function Nav({
           />
           <span className="flex flex-col leading-tight">
             <span className="font-mono text-lg font-semibold tracking-tight">
-              Zen<span className="text-accent">Yukti</span>
+              ZenYukti
             </span>
             <span className="hidden text-xs text-muted sm:block">
               Learn. Build. Share.
