@@ -1,5 +1,7 @@
-const API_BASE_URL =
+export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api.zenyukti.in";
+
+const REQUEST_TIMEOUT_MS = 10_000;
 
 export class ApiError extends Error {
   status: number;
@@ -13,6 +15,21 @@ export class ApiError extends Error {
 }
 
 /**
+ * Thrown when the Core API can't be reached at all — connection failure,
+ * DNS error, or timeout — as opposed to `ApiError`, which means the API
+ * responded but with a non-2xx status. Callers use this distinction to
+ * treat a genuinely unreachable API (e.g. a cold start) differently from
+ * ordinary HTTP errors like 401/403/500.
+ */
+export class ApiUnavailableError extends Error {
+  constructor(cause?: unknown) {
+    super("The ZenYukti API is unreachable");
+    this.name = "ApiUnavailableError";
+    this.cause = cause;
+  }
+}
+
+/**
  * Calls the Core API (api.zenyukti.in). Pass the Supabase access token for
  * authenticated requests, or `null` for the public invitation-accept flow.
  */
@@ -21,15 +38,26 @@ export async function apiFetch<T>(
   token: string | null,
   init?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
-    },
-    cache: "no-store",
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init?.headers,
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } catch (err) {
+    throw new ApiUnavailableError(err);
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!res.ok) {
     let message = res.statusText || "Request failed";
