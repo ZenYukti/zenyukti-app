@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/session";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch, ApiError, ApiUnavailableError } from "@/lib/api";
 import { StatusDot } from "@/components/StatusBadge";
 import { CopyButton } from "@/components/CopyButton";
+import { ApiBootGate } from "@/components/ApiBootGate";
 import {
   canManageInvitations,
   canViewMembers,
@@ -91,8 +92,15 @@ export default async function DashboardPage() {
   const session = await requireSession();
   const token = session.access_token;
 
-  const [me, profile, rolesRes, permsRes] = await Promise.all([
-    apiFetch<CoreUser>("/v1/me", token).catch(() => null),
+  // /v1/me's outcome is kept distinct from the other three (which already
+  // degrade gracefully via `profile?`/`roles.length` etc. below) so an
+  // unreachable API — as opposed to an ordinary 401/403/500 — can show the
+  // same ApiBootGate recovery UX AppLayout already shows for its own
+  // /v1/me call, instead of the generic red error box.
+  const [meResult, profile, rolesRes, permsRes] = await Promise.all([
+    apiFetch<CoreUser>("/v1/me", token)
+      .then((value) => ({ ok: true as const, value }))
+      .catch((error) => ({ ok: false as const, error })),
     apiFetch<CoreProfile>("/v1/me/profile", token).catch(() => null),
     apiFetch<CoreRolesResponse>("/v1/me/roles", token).catch(() => null),
     apiFetch<CorePermissionsResponse>("/v1/me/permissions", token).catch(
@@ -100,7 +108,10 @@ export default async function DashboardPage() {
     ),
   ]);
 
-  if (!me) {
+  if (!meResult.ok) {
+    if (meResult.error instanceof ApiUnavailableError) {
+      return <ApiBootGate apiUnavailable />;
+    }
     return (
       <p className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-500">
         Couldn&apos;t load your dashboard right now. Try refreshing, or check
@@ -108,6 +119,7 @@ export default async function DashboardPage() {
       </p>
     );
   }
+  const me = meResult.value;
 
   const permissions = permissionKeys(permsRes);
   const canTeam = canViewMembers(permissions);

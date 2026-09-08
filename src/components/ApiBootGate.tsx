@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/lib/api";
 
@@ -48,6 +48,12 @@ async function checkHealth(): Promise<boolean> {
  */
 export function ApiBootGate({ apiUnavailable }: { apiUnavailable: boolean }) {
   const router = useRouter();
+  // AppLayout and a page can each independently detect an unreachable API
+  // and mount this gate at the same time — unique ids keep aria-labelledby/
+  // aria-describedby scoped correctly if that ever happens simultaneously.
+  const headingId = useId();
+  const titleId = `${headingId}-title`;
+  const descId = `${headingId}-desc`;
   const [phase, setPhase] = useState<Phase>("checking");
   const [secondsLeft, setSecondsLeft] = useState(RETRY_SECONDS);
   const [attempts, setAttempts] = useState(0);
@@ -156,8 +162,8 @@ export function ApiBootGate({ apiUnavailable }: { apiUnavailable: boolean }) {
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="boot-gate-title"
-        aria-describedby="boot-gate-desc"
+        aria-labelledby={titleId}
+        aria-describedby={descId}
         onKeyDown={handleKeyDown}
         className="w-full max-w-sm rounded-lg border border-border bg-background p-6 shadow-2xl motion-safe:animate-[boot-gate-in_.25s_ease-out]"
       >
@@ -174,12 +180,12 @@ export function ApiBootGate({ apiUnavailable }: { apiUnavailable: boolean }) {
             Zen<span className="text-accent">Yukti</span>
           </p>
           <h2
-            id="boot-gate-title"
+            id={titleId}
             className="mt-2 text-lg font-semibold tracking-tight"
           >
             {title}
           </h2>
-          <p id="boot-gate-desc" className="mt-1 text-sm text-muted">
+          <p id={descId} className="mt-1 text-sm text-muted">
             {description}
           </p>
         </div>
