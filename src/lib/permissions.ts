@@ -44,3 +44,15 @@ export function canManageInvitations(permissions: string[]) {
 export function canViewMembers(permissions: string[]) {
   return matches(permissions, ["users:view"]);
 }
+
+/**
+ * PATCH /v1/users/:id/public-team-membership requires "public_team.manage"
+ * (Founder-authorized). This is a UX gate only — it just controls whether
+ * the edit controls render; the backend is the actual authority and
+ * re-checks this on every request. Deliberately independent of
+ * standing_role/roles — Founder/ZenCrew/ZenMate are not a substitute for
+ * this permission.
+ */
+export function canManagePublicTeam(permissions: string[]) {
+  return matches(permissions, ["public_team:manage"]);
+}

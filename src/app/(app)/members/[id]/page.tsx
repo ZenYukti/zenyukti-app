@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/session";
 import { apiFetch, ApiError } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
+import { PublicTeamMembership } from "@/components/PublicTeamMembership";
 import { standingLabel } from "@/lib/standing";
 import { SOCIAL_LABELS } from "@/lib/profile";
-import type { CoreMemberDetail } from "@/lib/types";
+import { canManagePublicTeam, permissionKeys } from "@/lib/permissions";
+import type { CoreMemberDetail, CorePermissionsResponse } from "@/lib/types";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -20,14 +22,18 @@ export default async function MemberDetailPage({
 }: PageProps<"/members/[id]">) {
   const { id } = await params;
   const session = await requireSession();
+  const token = session.access_token;
+
+  const perms = await apiFetch<CorePermissionsResponse>(
+    "/v1/me/permissions",
+    token,
+  ).catch(() => null);
+  const canManageTeam = canManagePublicTeam(permissionKeys(perms));
 
   let member: CoreMemberDetail | null = null;
   let loadError: string | null = null;
   try {
-    member = await apiFetch<CoreMemberDetail>(
-      `/v1/users/${id}`,
-      session.access_token,
-    );
+    member = await apiFetch<CoreMemberDetail>(`/v1/users/${id}`, token);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) {
       notFound();
@@ -149,6 +155,12 @@ export default async function MemberDetailPage({
               </div>
             </div>
           )}
+
+          <PublicTeamMembership
+            memberId={member.id}
+            initialPublicTeamMember={member.public_team_member}
+            canManage={canManageTeam}
+          />
 
           <p className="text-sm text-muted">
             Member since {formatDate(member.created_at)}

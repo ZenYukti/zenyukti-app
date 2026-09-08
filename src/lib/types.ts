@@ -81,6 +81,18 @@ export interface CoreMemberProfile {
   skills: string[];
 }
 
+/**
+ * Public Core Team roster membership, as returned on GET /v1/users and
+ * /v1/users/:id — `null` when the member isn't on the public roster.
+ * Deliberately separate from standing_role: the backend keeps
+ * Founder/ZenCrew/ZenMate completely independent of public Core Team
+ * listing, so this is never derived from it.
+ */
+export interface PublicTeamMember {
+  listed: boolean;
+  display_order: number;
+}
+
 /** GET /v1/users and GET /v1/users/:id. */
 export interface CoreMember {
   id: string;
@@ -90,6 +102,7 @@ export interface CoreMember {
   created_at: string;
   disabled_at?: string | null;
   profile?: CoreMemberProfile | null;
+  public_team_member?: PublicTeamMember | null;
 }
 
 export interface CoreMembersResponse {
@@ -106,6 +119,26 @@ export interface CoreMemberRole {
 
 export interface CoreMemberDetail extends CoreMember {
   roles: CoreMemberRole[];
+}
+
+/**
+ * PATCH /v1/users/:id/public-team-membership request body. `display_order`
+ * is only meaningful (and only sent) when adding/updating a listing —
+ * removing one is `{ listed: false }` with no order.
+ */
+export interface UpdatePublicTeamMembershipRequest {
+  listed: boolean;
+  display_order?: number;
+}
+
+/**
+ * PATCH /v1/users/:id/public-team-membership response body — confirmed
+ * against zenyukti-os's SetPublicTeamMembership handler. Always 200, with
+ * `public_team_member` set to the persisted { listed, display_order } on
+ * add/update, or `null` after a removal.
+ */
+export interface UpdatePublicTeamMembershipResponse {
+  public_team_member: PublicTeamMember | null;
 }
 
 export interface CorePermission {
