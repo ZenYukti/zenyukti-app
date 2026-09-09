@@ -21,10 +21,11 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-serif: var(--font-lora);
+  --font-script: var(--font-caveat);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #0a0a0b;
     --foreground: #f2f2f5;
     --muted: #96969f;
@@ -33,6 +34,48 @@
     --accent: #a78bfa;
     --accent-foreground: #0a0a0b;
   }
+}
+
+/* Explicit override for the ZenCard page's theme toggle (see ThemeToggle)
+   — wins over prefers-color-scheme in either direction. */
+:root[data-theme="dark"] {
+  --background: #0a0a0b;
+  --foreground: #f2f2f5;
+  --muted: #96969f;
+  --border: #26262b;
+  --surface: #131316;
+  --accent: #a78bfa;
+  --accent-foreground: #0a0a0b;
+}
+
+/* The public ZenCard page (/u/[username], wrapped in [data-zencard]) is a
+   light-first editorial design by spec — it must not silently follow the
+   visitor's OS dark preference the way the rest of the app does. A value
+   declared directly on this element always wins over whatever it would
+   otherwise inherit from :root, regardless of the media query above, so
+   this makes light the real default here specifically. The ThemeToggle
+   only ever lives on this page, and the second rule below (targeting
+   [data-zencard] itself, so it's more specific than the bare rule above)
+   lets that explicit choice still switch this page — and only this page —
+   to dark. The rest of the app (dashboard, editor, etc.) is untouched. */
+[data-zencard] {
+  --background: #ffffff;
+  --foreground: #111114;
+  --muted: #6b6b76;
+  --border: #e4e4e9;
+  --surface: #fafafa;
+  --accent: #6d28d9;
+  --accent-foreground: #ffffff;
+}
+
+:root[data-theme="dark"] [data-zencard] {
+  --background: #0a0a0b;
+  --foreground: #f2f2f5;
+  --muted: #96969f;
+  --border: #26262b;
+  --surface: #131316;
+  --accent: #a78bfa;
+  --accent-foreground: #0a0a0b;
 }
 
 body {

@@ -1,31 +1,50 @@
-import { Logo } from "@/components/Logo";
+import { SOCIAL_ICONS } from "@/components/zencard/icons";
 
-const LINKS = [
-  { href: "https://zenyukti.in/team", label: "Team" },
-  { href: "https://zenyukti.in/projects", label: "Projects" },
-  { href: "https://zenyukti.in/community", label: "Community" },
-  { href: "https://zenyukti.in/careers", label: "Careers" },
+// ZenYukti's own org-level social presence — distinct from a member's
+// personal socials rendered in the sidebar. URLs match the canonical
+// LINKS established in the zenyukti (marketing site) repo's
+// src/data/site.js, not guessed.
+const ORG_SOCIALS: { key: keyof typeof SOCIAL_ICONS; label: string; href: string }[] = [
+  { key: "github", label: "ZenYukti on GitHub", href: "https://github.com/ZenYukti" },
+  { key: "linkedin", label: "ZenYukti on LinkedIn", href: "https://linkedin.com/company/zenyukti" },
+  { key: "x", label: "ZenYukti on X", href: "https://x.com/zenyukti" },
+  { key: "instagram", label: "ZenYukti on Instagram", href: "https://instagram.com/zenyukti" },
 ];
 
 export function Footer() {
   return (
     <footer className="border-t border-border">
-      <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-4 py-8 sm:flex-row sm:items-center sm:px-6">
+      <div className="mx-auto flex max-w-7xl flex-col items-center gap-5 px-4 py-6 text-center sm:flex-row sm:justify-between sm:text-left sm:px-6">
         <div>
-          <Logo />
-          <p className="mt-1 text-xs text-muted">Learn. Build. Share.</p>
+          <span className="font-mono text-base font-semibold tracking-tight">
+            Zen<span className="text-accent">Yukti</span>
+          </span>
+          <p className="mt-0.5 text-xs text-muted">Learn. Build. Share.</p>
         </div>
-        <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
-          {LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="text-sm text-muted hover:text-foreground"
-            >
-              {link.label}
-            </a>
-          ))}
-        </nav>
+
+        <p className="text-sm text-muted">
+          A community of builders, creators and doers.
+        </p>
+
+        <div className="flex items-center gap-4">
+          <nav aria-label="ZenYukti on social media" className="flex items-center gap-3">
+            {ORG_SOCIALS.map(({ key, label, href }) => (
+              <a
+                key={key}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={label}
+                className="h-4 w-4 text-muted transition-colors hover:text-foreground"
+              >
+                {SOCIAL_ICONS[key]}
+              </a>
+            ))}
+          </nav>
+          <span className="text-xs text-muted">
+            Built with purpose <span aria-hidden="true">♥</span>
+          </span>
+        </div>
       </div>
     </footer>
   );
