@@ -1,15 +1,19 @@
 import { requireSession } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { ProfileView } from "@/components/ProfileView";
-import type { CoreProfile } from "@/lib/types";
+import { FeaturedWorkEditor } from "@/components/FeaturedWorkEditor";
+import type { CoreProfile, CoreFeaturedWorkListResponse } from "@/lib/types";
 
 export default async function ProfilePage() {
   const session = await requireSession();
+  const token = session.access_token;
 
-  const profile = await apiFetch<CoreProfile>(
-    "/v1/me/profile",
-    session.access_token,
-  ).catch(() => null);
+  const [profile, featuredWork] = await Promise.all([
+    apiFetch<CoreProfile>("/v1/me/profile", token).catch(() => null),
+    apiFetch<CoreFeaturedWorkListResponse>("/v1/me/featured-work", token)
+      .then((res) => res.featured_work)
+      .catch(() => []),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -25,6 +29,9 @@ export default async function ProfilePage() {
         email={session.user.email ?? ""}
         authUserId={session.user.id}
       />
+      <div className="border-t border-border pt-6">
+        <FeaturedWorkEditor initialItems={featuredWork} />
+      </div>
     </div>
   );
 }

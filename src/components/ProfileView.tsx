@@ -41,12 +41,27 @@ const SOCIAL_FIELDS: { key: keyof ProfileSocials; label: string; placeholder: st
   { key: "website", label: "Website", placeholder: "https://…" },
 ];
 
+function formatMemberSince(iso: string): string | null {
+  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(iso);
+  if (!match) return null;
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ];
+  const name = months[Number(match[2]) - 1];
+  return name ? `${name} ${match[1]}` : null;
+}
+
 interface FormState {
   display_name: string;
   username: string;
-  title: string;
   bio: string;
+  quote: string;
   avatar_url: string;
+  location: string;
+  availability: string;
+  focus_areas: string;
+  interests: string;
   github: string;
   linkedin: string;
   x: string;
@@ -60,9 +75,13 @@ function profileToForm(profile: CoreProfile | null, fallbackName: string): FormS
   return {
     display_name: profile?.display_name ?? fallbackName,
     username: profile?.username ?? "",
-    title: profile?.title ?? "",
     bio: profile?.bio ?? "",
+    quote: profile?.quote ?? "",
     avatar_url: profile?.avatar_url ?? "",
+    location: profile?.location ?? "",
+    availability: profile?.availability ?? "",
+    focus_areas: profile?.focus_areas.join(", ") ?? "",
+    interests: profile?.interests.join(", ") ?? "",
     github: profile?.socials.github ?? "",
     linkedin: profile?.socials.linkedin ?? "",
     x: profile?.socials.x ?? "",
@@ -73,8 +92,17 @@ function profileToForm(profile: CoreProfile | null, fallbackName: string): FormS
   };
 }
 
+function splitList(value: string): string[] {
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 const INPUT_CLASS =
   "rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent";
+
+const GROUP_LABEL_CLASS = "text-xs uppercase tracking-wide text-muted";
 
 export function ProfileView({
   initialProfile,
@@ -120,12 +148,13 @@ export function ProfileView({
       username: form.username || undefined,
       avatar_url: form.avatar_url || undefined,
       bio: form.bio || undefined,
-      title: form.title || undefined,
+      quote: form.quote || undefined,
+      location: form.location || undefined,
+      availability: form.availability || undefined,
+      focus_areas: splitList(form.focus_areas),
+      interests: splitList(form.interests),
       socials,
-      skills: form.skills
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
+      skills: splitList(form.skills),
       is_public: form.is_public,
     });
 
@@ -141,6 +170,9 @@ export function ProfileView({
 
   const displayName = profile?.display_name || email;
   const stats = profile ? profileCompleteness(profile) : null;
+  const memberSince = profile?.member_since
+    ? formatMemberSince(profile.member_since)
+    : null;
 
   if (editing) {
     return (
@@ -152,7 +184,34 @@ export function ProfileView({
           onChange={(url) => updateField("avatar_url", url ?? "")}
         />
 
+        {/* Official title and Team Member Since are ZenYukti-controlled —
+            never editable here. Only shown, never offered as inputs, so a
+            member can see their own official identity without being able
+            to change it (see OfficialProfileEditor for the Founder-only
+            write path). */}
+        {(profile?.title || memberSince) && (
+          <div className="flex flex-col gap-1 rounded-md border border-border bg-surface px-3 py-2.5 text-sm">
+            {profile?.title && (
+              <p>
+                <span className="text-muted">Official title: </span>
+                {profile.title}
+              </p>
+            )}
+            {memberSince && (
+              <p>
+                <span className="text-muted">Team Member Since: </span>
+                {memberSince}
+              </p>
+            )}
+            <p className="text-xs text-muted">
+              Set by a ZenYukti Founder — not editable here.
+            </p>
+          </div>
+        )}
+
         <div className="flex flex-col gap-4">
+          <p className={GROUP_LABEL_CLASS}>Profile information</p>
+
           <div className="flex flex-col gap-1.5">
             <label htmlFor="display_name" className="text-sm font-medium">
               Display name
@@ -192,28 +251,93 @@ export function ProfileView({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="title" className="text-sm font-medium">
-              Title / role
-            </label>
-            <input
-              id="title"
-              type="text"
-              value={form.title}
-              onChange={(e) => updateField("title", e.target.value)}
-              placeholder="e.g. ZenCrew · Backend"
-              className={INPUT_CLASS}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
             <label htmlFor="bio" className="text-sm font-medium">
               Bio
             </label>
             <textarea
               id="bio"
               rows={3}
+              maxLength={1000}
               value={form.bio}
               onChange={(e) => updateField("bio", e.target.value)}
+              className={INPUT_CLASS}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="quote" className="text-sm font-medium">
+              Quote
+            </label>
+            <textarea
+              id="quote"
+              rows={2}
+              maxLength={300}
+              placeholder="A short personal quote for your ZenCard sidebar"
+              value={form.quote}
+              onChange={(e) => updateField("quote", e.target.value)}
+              className={INPUT_CLASS}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4 border-t border-border pt-4">
+          <p className={GROUP_LABEL_CLASS}>Professional details</p>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="location" className="text-sm font-medium">
+                Location
+              </label>
+              <input
+                id="location"
+                type="text"
+                maxLength={100}
+                placeholder="e.g. Delhi, India"
+                value={form.location}
+                onChange={(e) => updateField("location", e.target.value)}
+                className={INPUT_CLASS}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="availability" className="text-sm font-medium">
+                Availability
+              </label>
+              <input
+                id="availability"
+                type="text"
+                maxLength={100}
+                placeholder="e.g. Open to Collaborate"
+                value={form.availability}
+                onChange={(e) => updateField("availability", e.target.value)}
+                className={INPUT_CLASS}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="focus_areas" className="text-sm font-medium">
+              Focus areas
+            </label>
+            <input
+              id="focus_areas"
+              type="text"
+              placeholder="Comma-separated, e.g. Community, Design, Technology"
+              value={form.focus_areas}
+              onChange={(e) => updateField("focus_areas", e.target.value)}
+              className={INPUT_CLASS}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="interests" className="text-sm font-medium">
+              Interests
+            </label>
+            <input
+              id="interests"
+              type="text"
+              placeholder="Comma-separated, e.g. Open Source, Education, AI"
+              value={form.interests}
+              onChange={(e) => updateField("interests", e.target.value)}
               className={INPUT_CLASS}
             />
           </div>
@@ -234,9 +358,7 @@ export function ProfileView({
         </div>
 
         <div className="flex flex-col gap-4 border-t border-border pt-4">
-          <p className="text-xs uppercase tracking-wide text-muted">
-            Social links
-          </p>
+          <p className={GROUP_LABEL_CLASS}>Social links</p>
           {SOCIAL_FIELDS.map(({ key, label, placeholder }) => (
             <div key={key} className="flex flex-col gap-1.5">
               <label htmlFor={key} className="text-sm font-medium">
@@ -338,7 +460,60 @@ export function ProfileView({
         </button>
       </div>
 
+      {memberSince && (
+        <p className="text-xs text-muted">Team Member Since {memberSince}</p>
+      )}
+
       {profile?.bio && <p className="text-sm leading-relaxed">{profile.bio}</p>}
+
+      {profile?.quote && (
+        <p className="border-l-2 border-accent/40 pl-3 text-sm italic leading-relaxed text-foreground/80">
+          &ldquo;{profile.quote}&rdquo;
+        </p>
+      )}
+
+      {profile && (profile.location || profile.availability) && (
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted">
+          {profile.location && <span>📍 {profile.location}</span>}
+          {profile.availability && <span>{profile.availability}</span>}
+        </div>
+      )}
+
+      {profile && profile.focus_areas.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs uppercase tracking-wide text-muted">
+            Focus areas
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {profile.focus_areas.map((area) => (
+              <span
+                key={area}
+                className="rounded-full bg-surface px-2.5 py-1 text-xs"
+              >
+                {area}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {profile && profile.interests.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs uppercase tracking-wide text-muted">
+            Interests
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {profile.interests.map((interest) => (
+              <span
+                key={interest}
+                className="rounded-full bg-surface px-2.5 py-1 text-xs"
+              >
+                {interest}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {profile && profile.skills.length > 0 && (
         <div>

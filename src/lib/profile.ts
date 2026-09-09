@@ -9,14 +9,16 @@ export const SOCIAL_LABELS: { key: keyof ProfileSocials; label: string }[] = [
   { key: "website", label: "Website" },
 ];
 
+// "title" is deliberately not part of this checklist — it's ZenYukti-
+// controlled (see CoreProfile's doc comment), not something a member can
+// act on to move their own completeness forward.
 const PROFILE_FIELDS: {
-  key: "display_name" | "avatar_url" | "bio" | "title";
+  key: "display_name" | "avatar_url" | "bio";
   label: string;
 }[] = [
   { key: "display_name", label: "display name" },
   { key: "avatar_url", label: "avatar" },
   { key: "bio", label: "bio" },
-  { key: "title", label: "title" },
 ];
 
 export function hasSocialLink(socials: ProfileSocials) {
