@@ -56,3 +56,22 @@ export function canViewMembers(permissions: string[]) {
 export function canManagePublicTeam(permissions: string[]) {
   return matches(permissions, ["public_team:manage"]);
 }
+
+/**
+ * PATCH /v1/users/:id/title and PATCH /v1/users/:id/member-since both
+ * require "profiles.manage" (Founder-only, see zenyukti-os
+ * cmd/api/router.go's 00027 comment) — confirmed, not guessed, so this
+ * checks exactly that key, same as canViewMembers above.
+ */
+export function canManageOfficialProfile(permissions: string[]) {
+  return matches(permissions, ["profiles:manage"]);
+}
+
+/**
+ * GET/POST /v1/users/:id/journey and PATCH/DELETE .../journey/:entry_id
+ * all require "journey.manage" (Founder-only, see cmd/api/router.go's
+ * 00026 comment) — confirmed, not guessed.
+ */
+export function canManageJourney(permissions: string[]) {
+  return matches(permissions, ["journey:manage"]);
+}

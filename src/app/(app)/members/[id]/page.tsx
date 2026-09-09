@@ -4,10 +4,21 @@ import { requireSession } from "@/lib/session";
 import { apiFetch, ApiError } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PublicTeamMembership } from "@/components/PublicTeamMembership";
+import { OfficialProfileEditor } from "@/components/OfficialProfileEditor";
+import { JourneyEditor } from "@/components/JourneyEditor";
 import { standingLabel } from "@/lib/standing";
 import { SOCIAL_LABELS } from "@/lib/profile";
-import { canManagePublicTeam, permissionKeys } from "@/lib/permissions";
-import type { CoreMemberDetail, CorePermissionsResponse } from "@/lib/types";
+import {
+  canManagePublicTeam,
+  canManageOfficialProfile,
+  canManageJourney,
+  permissionKeys,
+} from "@/lib/permissions";
+import type {
+  CoreMemberDetail,
+  CorePermissionsResponse,
+  CoreJourneyListResponse,
+} from "@/lib/types";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -28,7 +39,10 @@ export default async function MemberDetailPage({
     "/v1/me/permissions",
     token,
   ).catch(() => null);
-  const canManageTeam = canManagePublicTeam(permissionKeys(perms));
+  const permissions = permissionKeys(perms);
+  const canManageTeam = canManagePublicTeam(permissions);
+  const canManageProfile = canManageOfficialProfile(permissions);
+  const canManageMemberJourney = canManageJourney(permissions);
 
   let member: CoreMemberDetail | null = null;
   let loadError: string | null = null;
@@ -45,6 +59,16 @@ export default async function MemberDetailPage({
           : err.detail || err.message
         : "Couldn't load this member.";
   }
+
+  // Only fetched when the viewer can actually manage Journey — GET
+  // /v1/users/{id}/journey is itself permission-gated (journey.manage), so
+  // this avoids a request that would just 403 for anyone else.
+  const journeyEntries =
+    member && canManageMemberJourney
+      ? await apiFetch<CoreJourneyListResponse>(`/v1/users/${id}/journey`, token)
+          .then((res) => res.journey)
+          .catch(() => [])
+      : [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -162,8 +186,19 @@ export default async function MemberDetailPage({
             canManage={canManageTeam}
           />
 
+          {canManageProfile && (
+            <OfficialProfileEditor
+              userId={member.id}
+              currentTitle={member.profile?.title}
+            />
+          )}
+
+          {canManageMemberJourney && (
+            <JourneyEditor userId={member.id} initialEntries={journeyEntries} />
+          )}
+
           <p className="text-sm text-muted">
-            Member since {formatDate(member.created_at)}
+            Account created {formatDate(member.created_at)}
             {member.disabled_at &&
               ` · Disabled ${formatDate(member.disabled_at)}`}
           </p>
