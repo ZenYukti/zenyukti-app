@@ -3,6 +3,17 @@ export const API_BASE_URL =
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
+/**
+ * Statuses a gateway/proxy in front of the Core API returns on its own —
+ * before the request ever reaches zenyukti-os — while the Render free-tier
+ * instance is cold-starting from sleep. fetch() resolves normally for
+ * these (they're real HTTP responses, not network failures), so without
+ * this check they'd fall through to the generic ApiError path below and
+ * never trigger ApiBootGate's recovery UI, even though "the API is
+ * unreachable right now" is exactly what's happening.
+ */
+const GATEWAY_UNAVAILABLE_STATUSES = new Set([502, 503, 504]);
+
 export class ApiError extends Error {
   status: number;
   detail?: string;
@@ -60,6 +71,10 @@ export async function apiFetch<T>(
   }
 
   if (!res.ok) {
+    if (GATEWAY_UNAVAILABLE_STATUSES.has(res.status)) {
+      throw new ApiUnavailableError(res.statusText || res.status);
+    }
+
     let message = res.statusText || "Request failed";
     let detail: string | undefined;
     try {
