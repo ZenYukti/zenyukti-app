@@ -93,7 +93,7 @@ export default async function PublicProfilePage({
         <ZenCardSidebar profile={profile} />
 
         <div className="flex min-w-0 flex-1 flex-col gap-8">
-          <ZenYuktiHero displayName={profile.display_name} title={profile.title} />
+          <ZenYuktiHero bannerUrl={profile.banner_url} />
           <MetaStrip
             memberSince={profile.member_since}
             location={profile.location}

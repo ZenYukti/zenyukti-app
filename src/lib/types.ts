@@ -42,6 +42,7 @@ export interface CoreProfile {
   display_name: string;
   username?: string;
   avatar_url?: string;
+  banner_url?: string;
   bio?: string;
   title?: string;
   socials: ProfileSocials;
@@ -68,6 +69,7 @@ export interface UpdateProfileRequest {
   display_name: string;
   username?: string;
   avatar_url?: string;
+  banner_url?: string | null;
   bio?: string;
   socials: ProfileSocials;
   skills: string[];
@@ -336,6 +338,7 @@ export interface CorePublicProfile {
   username: string;
   display_name: string;
   avatar_url?: string;
+  banner_url?: string;
   title?: string;
   bio?: string;
   skills: string[];

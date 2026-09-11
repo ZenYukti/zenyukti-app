@@ -5,6 +5,7 @@ import Link from "next/link";
 import { updateProfile } from "@/lib/profile-actions";
 import { profileCompleteness } from "@/lib/profile";
 import { AvatarUpload } from "@/components/AvatarUpload";
+import { BannerUpload } from "@/components/BannerUpload";
 import { CopyButton } from "@/components/CopyButton";
 import type { CoreProfile, ProfileSocials } from "@/lib/types";
 
@@ -58,6 +59,7 @@ interface FormState {
   bio: string;
   quote: string;
   avatar_url: string;
+  banner_url: string;
   location: string;
   availability: string;
   focus_areas: string;
@@ -78,6 +80,7 @@ function profileToForm(profile: CoreProfile | null, fallbackName: string): FormS
     bio: profile?.bio ?? "",
     quote: profile?.quote ?? "",
     avatar_url: profile?.avatar_url ?? "",
+    banner_url: profile?.banner_url ?? "",
     location: profile?.location ?? "",
     availability: profile?.availability ?? "",
     focus_areas: profile?.focus_areas.join(", ") ?? "",
@@ -147,6 +150,7 @@ export function ProfileView({
       display_name: form.display_name,
       username: form.username || undefined,
       avatar_url: form.avatar_url || undefined,
+      banner_url: form.banner_url || null,
       bio: form.bio || undefined,
       quote: form.quote || undefined,
       location: form.location || undefined,
@@ -182,6 +186,11 @@ export function ProfileView({
           displayName={form.display_name || email}
           avatarUrl={form.avatar_url || null}
           onChange={(url) => updateField("avatar_url", url ?? "")}
+        />
+        <BannerUpload
+          authUserId={authUserId}
+          bannerUrl={form.banner_url || null}
+          onChange={(url) => updateField("banner_url", url ?? "")}
         />
 
         {/* Official title and Team Member Since are ZenYukti-controlled —
